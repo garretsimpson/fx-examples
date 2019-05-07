@@ -29,7 +29,7 @@ public class Spots extends Application {
     private static final int SIZE_X = 1024;
     private static final int SIZE_Y = 800;
 
-    private static final int NUM_SPOTS = 30;
+    private static final int NUM_SPOTS = 40;
     private static final int SPOT_MIN_SIZE = 20;
     private static final int SPOT_MAX_SIZE = 100;
     private static final int MAX_SPEED = 7;
@@ -89,7 +89,7 @@ public class Spots extends Application {
 
     private Spot createSpot() {
         Spot spot = new Spot();
-        spot.setPosition(root.getPrefWidth() * Math.random(), root.getPrefWidth() * Math.random());
+        spot.setPosition(root.getPrefWidth() / 2, root.getPrefHeight() / 2);
         spot.setVelocity(new Point2D(Math.random() - 0.5, Math.random() - 0.5).multiply(MAX_SPEED));
         spot.setSize((SPOT_MAX_SIZE - SPOT_MIN_SIZE) * Math.random() + SPOT_MIN_SIZE);
         return spot;
