@@ -5,11 +5,13 @@ import java.util.List;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Point2D;
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.effect.BoxBlur;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
@@ -19,13 +21,18 @@ import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
 
+/**
+ * @author Garret Simpson (gsimpson@gmail.com)
+ */
 public class Spots extends Application {
 
     private static final int SIZE_X = 1024;
     private static final int SIZE_Y = 800;
 
-    private static final int NUM_SPOTS = 25;
-    private static final int SPOT_SIZE = 100;
+    private static final int NUM_SPOTS = 30;
+    private static final int SPOT_MIN_SIZE = 20;
+    private static final int SPOT_MAX_SIZE = 100;
+    private static final int MAX_SPEED = 7;
 
     private Pane root;
     private List<Spot> spots = new ArrayList<>();
@@ -40,6 +47,11 @@ public class Spots extends Application {
     public void start(Stage stage) {
         stage.setScene(new Scene(createContent()));
         stage.show();
+        stage.getScene().setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                Platform.exit();
+            }
+        });
     }
 
     public Parent createContent() {
@@ -52,9 +64,14 @@ public class Spots extends Application {
         boarder.setStroke(Color.BLACK);
         root.getChildren().add(boarder);
 
+        Group circles = new Group();
         for (int i = 0; i < NUM_SPOTS; i++) {
-            createSpot();
+            Spot spot = createSpot();
+            spots.add(spot);
+            circles.getChildren().add(spot.getNode());
         }
+        // circles.setEffect(new BoxBlur(10, 10, 1));
+        root.getChildren().add(circles);
 
         scoreBox = new ScoreBox();
         root.getChildren().add(scoreBox.getNode());
@@ -70,12 +87,12 @@ public class Spots extends Application {
         return root;
     }
 
-    private void createSpot() {
+    private Spot createSpot() {
         Spot spot = new Spot();
         spot.setPosition(root.getPrefWidth() * Math.random(), root.getPrefWidth() * Math.random());
-        spot.setVelocity(10 * Math.random() - 5, 10 * Math.random() - 5);
-        spots.add(spot);
-        root.getChildren().add(spot.getNode());
+        spot.setVelocity(new Point2D(Math.random() - 0.5, Math.random() - 0.5).multiply(MAX_SPEED));
+        spot.setSize((SPOT_MAX_SIZE - SPOT_MIN_SIZE) * Math.random() + SPOT_MIN_SIZE);
+        return spot;
     }
 
     private void onUpdate() {
@@ -84,19 +101,16 @@ public class Spots extends Application {
 
     private class Spot {
         private Circle spot;
-        private double radius;
+        private double radius = SPOT_MIN_SIZE;
         private Color color = Color.BLACK;
         private Point2D velocity = new Point2D(0, 0);
 
         public Spot() {
-            radius = SPOT_SIZE * Math.random() + 20;
-
             spot = new Circle(radius);
             spot.setFill(color);
             spot.setStrokeType(StrokeType.INSIDE);
             spot.setStroke(Color.GRAY);
             spot.setStrokeWidth(5);
-            spot.setEffect(new BoxBlur(10, 10, 1));
 
             spot.setOnMouseClicked(e -> {
                 if (color.equals(Color.BLACK)) {
@@ -105,6 +119,10 @@ public class Spots extends Application {
                     spot.setFill(color);
                 }
             });
+        }
+
+        public Node getNode() {
+            return spot;
         }
 
         public void setPosition(double x, double y) {
@@ -116,8 +134,13 @@ public class Spots extends Application {
             velocity = new Point2D(dx, dy);
         }
 
-        public Node getNode() {
-            return spot;
+        public void setVelocity(Point2D velocity) {
+            this.velocity = velocity;
+        }
+
+        public void setSize(double size) {
+            radius = size;
+            spot.setRadius(radius);
         }
 
         public void update() {
@@ -149,11 +172,11 @@ public class Spots extends Application {
             spot.setTranslateY(posY);
 
             if (winner) {
+                rotateColor();
                 dy += 1; // Gravity
             }
             setVelocity(dx, dy);
             // velocity = velocity.multiply(0.99); // Friction
-            rotateColor();
         }
 
         private void rotateColor() {
