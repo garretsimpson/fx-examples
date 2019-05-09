@@ -29,7 +29,7 @@ public class Spots3D extends Application {
 
     private static final int WIDTH = 1024;
     private static final int HEIGHT = 800;
-    private static final int FIELD_SIZE = 500;
+    private static final double FIELD_SIZE = 500;
 
     private static final int NUM_SPOTS = 30;
     private static final double SPOT_MIN_SIZE = 10;
@@ -55,8 +55,6 @@ public class Spots3D extends Application {
 
         // Create camera
         PerspectiveCamera camera = new PerspectiveCamera(true);
-        camera.setTranslateX(0.5 * FIELD_SIZE);
-        camera.setTranslateY(0.5 * FIELD_SIZE);
         camera.setTranslateZ(-2.0 * FIELD_SIZE);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
         camera.setFarClip(5 * FIELD_SIZE);
@@ -70,8 +68,10 @@ public class Spots3D extends Application {
         light2.setTranslateZ(-FIELD_SIZE);
         content.getChildren().addAll(light1, light2);
 
-        // Create boarder
-        content.getChildren().add(createBoarder());
+        // Create border
+        Group border = createBorder();
+        border.setVisible(false);
+        content.getChildren().add(border);
 
         // Create spots
         for (int i = 0; i < NUM_SPOTS; i++) {
@@ -90,6 +90,7 @@ public class Spots3D extends Application {
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                content.getTransforms().add(new Rotate(-0.3, Rotate.Y_AXIS));
                 onUpdate();
             }
         };
@@ -109,6 +110,15 @@ public class Spots3D extends Application {
             case RIGHT:
                 content.getTransforms().add(new Rotate(-10, Rotate.Y_AXIS));
                 break;
+            case W:
+                camera.setTranslateZ(camera.getTranslateZ() + 50);
+                break;
+            case S:
+                camera.setTranslateZ(camera.getTranslateZ() - 50);
+                break;
+            case B:
+                border.setVisible(!border.isVisible());
+                break;
             case DIGIT1:
                 winner = !winner;
                 break;
@@ -125,39 +135,36 @@ public class Spots3D extends Application {
         spots.forEach(Spot::update);
     }
 
-    public Group createBoarder() throws Exception {
+    public Group createBorder() throws Exception {
         Group item = new Group();
 
         final PhongMaterial matBlack = new PhongMaterial(Color.BLACK);
 
         Box edge;
-        int[] v = { 0, FIELD_SIZE };
+        double[] v = { -FIELD_SIZE / 2, FIELD_SIZE / 2 };
 
-        for (int x : v) {
-            for (int y : v) {
+        for (double x : v) {
+            for (double y : v) {
                 edge = new Box(1, 1, FIELD_SIZE);
                 edge.setTranslateX(x);
                 edge.setTranslateY(y);
-                edge.setTranslateZ(FIELD_SIZE / 2);
                 edge.setMaterial(matBlack);
                 item.getChildren().add(edge);
             }
         }
-        for (int y : v) {
-            for (int z : v) {
+        for (double y : v) {
+            for (double z : v) {
                 edge = new Box(FIELD_SIZE, 1, 1);
-                edge.setTranslateX(FIELD_SIZE / 2);
                 edge.setTranslateY(y);
                 edge.setTranslateZ(z);
                 edge.setMaterial(matBlack);
                 item.getChildren().add(edge);
             }
         }
-        for (int x : v) {
-            for (int z : v) {
+        for (double x : v) {
+            for (double z : v) {
                 edge = new Box(1, FIELD_SIZE, 1);
                 edge.setTranslateX(x);
-                edge.setTranslateY(FIELD_SIZE / 2);
                 edge.setTranslateZ(z);
                 edge.setMaterial(matBlack);
                 item.getChildren().add(edge);
@@ -169,7 +176,6 @@ public class Spots3D extends Application {
 
     private Spot createSpot() {
         Spot spot = new Spot();
-        spot.setPosition(FIELD_SIZE / 2, FIELD_SIZE / 2, FIELD_SIZE / 2);
         spot.setVelocity(
             new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiply(MAX_SPEED));
         spot.setSize((SPOT_MAX_SIZE - SPOT_MIN_SIZE) * Math.random() + SPOT_MIN_SIZE);
@@ -228,12 +234,12 @@ public class Spots3D extends Application {
         }
 
         public void update() {
-            double minX = radius;
-            double minY = radius;
-            double minZ = radius;
-            double maxX = FIELD_SIZE - radius;
-            double maxY = FIELD_SIZE - radius;
-            double maxZ = FIELD_SIZE - radius;
+            double minX = -FIELD_SIZE / 2 + radius;
+            double minY = -FIELD_SIZE / 2 + radius;
+            double minZ = -FIELD_SIZE / 2 + radius;
+            double maxX = FIELD_SIZE / 2 - radius;
+            double maxY = FIELD_SIZE / 2 - radius;
+            double maxZ = FIELD_SIZE / 2 - radius;
             double dx = velocity.getX();
             double dy = velocity.getY();
             double dz = velocity.getZ();
@@ -269,7 +275,7 @@ public class Spots3D extends Application {
 
             if (winner) {
                 rotateColor();
-                dy += 0.1; // Gravity
+                dy += 0.2; // Gravity
             }
             setVelocity(dx, dy, dz);
             // velocity = velocity.multiply(0.99); // Friction
