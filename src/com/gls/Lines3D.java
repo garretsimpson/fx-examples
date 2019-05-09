@@ -31,10 +31,10 @@ public class Lines3D extends Application {
     private static final int WIDTH = 1024;
     private static final int HEIGHT = 800;
     private static final double FIELD_SIZE = 512;
-    private static final double MAX_SPEED = 3;
+    private static final double MAX_SPEED = 2.2;
     private static final double NUM_LINES = 30;
-    private static final double LINE_SIZE = 2;
-    private static final int FAN_SIZE = 100;
+    private static final double LINE_SIZE = 1;
+    private static final int FAN_SIZE = 150;
     private static final int NUM_FANS = 5;
 
     Group world = new Group();
@@ -55,7 +55,7 @@ public class Lines3D extends Application {
 
         // Create camera
         PerspectiveCamera camera = new PerspectiveCamera(true);
-        camera.setTranslateZ(-3.0 * FIELD_SIZE);
+        camera.setTranslateZ(-1.5 * FIELD_SIZE);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
         camera.setFarClip(5 * FIELD_SIZE);
         scene.setCamera(camera);
@@ -66,10 +66,12 @@ public class Lines3D extends Application {
         light2.setTranslateX(-5 * FIELD_SIZE);
         light2.setTranslateY(-5 * FIELD_SIZE);
         light2.setTranslateZ(-5 * FIELD_SIZE);
-        content.getChildren().addAll(light1, light2);
+        world.getChildren().addAll(light1, light2);
 
         // Create boarder
-        content.getChildren().add(createBoarder());
+        Group boarder = createBoarder();
+        boarder.setVisible(false);
+        content.getChildren().add(boarder);
 
         // Create content
         content.getChildren().add(createFans());
@@ -83,6 +85,7 @@ public class Lines3D extends Application {
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                content.getTransforms().add(new Rotate(0.2, Rotate.Y_AXIS));
                 onUpdate();
             }
 
@@ -109,6 +112,9 @@ public class Lines3D extends Application {
                 break;
             case S:
                 camera.setTranslateZ(camera.getTranslateZ() - 50);
+                break;
+            case B:
+                boarder.setVisible(!boarder.isVisible());
                 break;
             case ESCAPE:
                 Platform.exit();
@@ -269,7 +275,7 @@ public class Lines3D extends Application {
             for (int i = 0; i < spots.length; i++) {
                 spots[i] = new Spot();
             }
-            Color color = Color.hsb(360 * Math.random(), 1, 1);
+            Color color = Color.hsb(360 * Math.random(), 0.6, 1);
             mat.setDiffuseColor(color);
             // mat.setSpecularColor(Color.SILVER);
             setMaterial(mat);
@@ -310,11 +316,11 @@ public class Lines3D extends Application {
         }
 
         private void rotateColor() {
-            double hue = mat.getDiffuseColor().getHue() + 1;
+            double hue = getColor().getHue() + 0.6;
             if (hue > 360) {
                 hue -= 360;
             }
-            mat.setDiffuseColor(Color.hsb(hue, 1, 1));
+            setColor(Color.hsb(hue, 0.6, 1));
         }
 
     }
