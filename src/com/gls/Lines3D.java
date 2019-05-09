@@ -10,7 +10,6 @@ import javafx.application.Platform;
 import javafx.geometry.Point3D;
 import javafx.scene.AmbientLight;
 import javafx.scene.Group;
-import javafx.scene.Node;
 import javafx.scene.PerspectiveCamera;
 import javafx.scene.PointLight;
 import javafx.scene.Scene;
@@ -19,7 +18,6 @@ import javafx.scene.input.KeyEvent;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
-import javafx.scene.shape.Sphere;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Scale;
 import javafx.scene.transform.Translate;
@@ -33,11 +31,16 @@ public class Lines3D extends Application {
     private static final int WIDTH = 1024;
     private static final int HEIGHT = 800;
     private static final double FIELD_SIZE = 512;
-    private static final double SPEED = 5;
+    private static final double MAX_SPEED = 3;
     private static final double NUM_LINES = 30;
+    private static final double LINE_SIZE = 2;
+    private static final int FAN_SIZE = 100;
+    private static final int NUM_FANS = 5;
 
-    Group world;
+    Group world = new Group();
+    Group lineGroup = new Group();
     List<Line> lines = new ArrayList<>();
+    List<Fan> fans = new ArrayList<>();
 
     public static void main(String[] args) {
         launch(args);
@@ -46,7 +49,6 @@ public class Lines3D extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception {
         // primaryStage.setResizable(false);
-        world = new Group();
         Scene scene = new Scene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
         scene.setFill(Color.SILVER);
         Group content = new Group();
@@ -70,8 +72,7 @@ public class Lines3D extends Application {
         content.getChildren().add(createBoarder());
 
         // Create content
-        Group items = createContent();
-        content.getChildren().add(items);
+        content.getChildren().add(createFans());
         world.getChildren().add(content);
 
         // Display scene
@@ -88,6 +89,7 @@ public class Lines3D extends Application {
         };
         timer.start();
 
+        // Handle key press events
         primaryStage.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             switch (event.getCode()) {
             case UP:
@@ -102,6 +104,12 @@ public class Lines3D extends Application {
             case RIGHT:
                 content.getTransforms().add(new Rotate(-10, Rotate.Y_AXIS));
                 break;
+            case W:
+                camera.setTranslateZ(camera.getTranslateZ() + 50);
+                break;
+            case S:
+                camera.setTranslateZ(camera.getTranslateZ() - 50);
+                break;
             case ESCAPE:
                 Platform.exit();
                 break;
@@ -113,19 +121,39 @@ public class Lines3D extends Application {
 
     private void onUpdate() {
         lines.forEach(Line::update);
+        fans.forEach(Fan::update);
     }
 
-    private Group createContent() {
-        Group items = new Group();
+    private Group createFans() {
+        for (int i = 0; i < NUM_FANS; i++) {
+            createFan();
+        }
+        return lineGroup;
+    }
 
+    private Group createFan() {
+        Fan fan = new Fan();
+        Line line = fan.getLine();
+        List<Spot> spots = line.getSpots();
+        spots.forEach(spot -> {
+            spot.setPosition(randomPoint(-FIELD_SIZE / 2, FIELD_SIZE / 2));
+            spot.setVelocity(randomPoint(-MAX_SPEED, MAX_SPEED));
+        });
+        line.draw();
+        lineGroup.getChildren().add(line);
+        fans.add(fan);
+
+        return lineGroup;
+    }
+
+    private Group createLines() {
         Line line;
         for (int i = 0; i < NUM_LINES; i++) {
             line = createLine();
             lines.add(line);
-            items.getChildren().add(line.getNode());
+            lineGroup.getChildren().add(line);
         }
-
-        return items;
+        return lineGroup;
     }
 
     private Line createLine() {
@@ -133,63 +161,9 @@ public class Lines3D extends Application {
         List<Spot> spots = line.getSpots();
         spots.forEach(spot -> {
             spot.setPosition(randomPoint(-FIELD_SIZE / 2, FIELD_SIZE / 2));
-            spot.setVelocity(randomPoint(-SPEED, SPEED));
+            spot.setVelocity(randomPoint(-MAX_SPEED, MAX_SPEED));
         });
         return line;
-    }
-
-    private Group createTestContent() {
-        Group items = new Group();
-
-        Point3D p1 = randomPoint(0, FIELD_SIZE / 2);
-        Point3D p2 = randomPoint(-FIELD_SIZE / 2, 0);
-        Point3D vec = p2.subtract(p1);
-        double len = p1.distance(p2);
-        double mag = vec.magnitude();
-        Point3D mid = p1.midpoint(p2);
-        double angle = Rotate.Y_AXIS.angle(vec);
-        Point3D norm = Rotate.Y_AXIS.crossProduct(vec);
-
-        System.out.println("p1:" + p1);
-        System.out.println("p2:" + p2);
-        System.out.println("v1:" + vec);
-        System.out.println("len:" + len);
-        System.out.println("mag:" + mag);
-        System.out.println("mid:" + mid);
-        System.out.println("ang:" + angle);
-
-        Sphere s1 = new Sphere(10);
-        s1.setMaterial(new PhongMaterial(Color.GREEN));
-        s1.getTransforms().add(new Translate(p1.getX(), p1.getY(), p1.getZ()));
-
-        Sphere s2 = new Sphere(10);
-        s2.setMaterial(new PhongMaterial(Color.RED));
-        s2.getTransforms().add(new Translate(p2.getX(), p2.getY(), p2.getZ()));
-
-        Sphere s3 = new Sphere(10);
-        s3.setMaterial(new PhongMaterial(Color.YELLOW));
-
-        Sphere s4 = new Sphere(10);
-        s4.setMaterial(new PhongMaterial(Color.BLUE));
-        s4.getTransforms().add(new Translate(mid.getX(), mid.getY(), mid.getZ()));
-
-        Box b1 = new Box(1, 1, 1);
-        b1.setMaterial(new PhongMaterial(Color.BLACK));
-        b1.getTransforms().add(new Translate(mid.getX(), mid.getY(), mid.getZ()));
-        b1.getTransforms().add(new Rotate(angle, norm));
-        b1.getTransforms().add(new Scale(10, len, 10));
-
-        Box b2 = new Box(1, 1, 1);
-        b2.getTransforms().add(new Scale(10, len, 10));
-        b2.setMaterial(new PhongMaterial(Color.YELLOW));
-
-        Box b3 = new Box(1, 1, 1);
-        b3.setMaterial(new PhongMaterial(Color.BLUE));
-        b3.getTransforms().add(new Translate(mid.getX(), mid.getY(), mid.getZ()));
-        b3.getTransforms().add(new Scale(10, len, 10));
-
-        items.getChildren().addAll(s1, s2, s3, s4, b1, b2, b3);
-        return items;
     }
 
     private Point3D randomPoint(double min, double max) {
@@ -238,27 +212,79 @@ public class Lines3D extends Application {
         return item;
     }
 
-    private class Line {
-        private Box box = new Box(1, 1, 1);
-        final PhongMaterial mat = new PhongMaterial(Color.BLACK);
+    private class Fan {
+        // Need a circular queue.
+        int size = FAN_SIZE;
+        Line[] lines = new Line[size];
+        int pos = 0;
+
+        public Fan() {
+            Line line = new Line();
+            lines[pos] = line;
+        }
+
+        // Note: Cannot use getParent() to remove the line and add a new one.
+        public void update() {
+            if (size == 1) {
+                lines[pos].update();
+                return;
+            }
+
+            // Copy the current line
+            Line curLine = lines[pos];
+            Line newLine = new Line();
+            List<Spot> curSpots = curLine.getSpots();
+            List<Spot> newSpots = newLine.getSpots();
+            for (int i = 0; i < curSpots.size(); i++) {
+                newSpots.get(i).setPosition(curSpots.get(i).getPosition());
+                newSpots.get(i).setVelocity(curSpots.get(i).getVelocity());
+            }
+            newLine.setColor(curLine.getColor());
+
+            // Update the new line
+            newLine.update();
+
+            // Add the new line
+            int next = (pos + 1) % size;
+            Line oldLine = lines[next];
+            if (oldLine != null) {
+                lineGroup.getChildren().remove(oldLine);
+            }
+            lineGroup.getChildren().add(newLine);
+            lines[next] = newLine;
+            pos = next;
+        }
+
+        public Line getLine() {
+            return lines[pos];
+        }
+    }
+
+    private class Line extends Box {
         private Spot[] spots = new Spot[2];
+        private final PhongMaterial mat = new PhongMaterial(Color.BLACK);
 
         public Line() {
+            super(1, 1, 1);
             for (int i = 0; i < spots.length; i++) {
                 spots[i] = new Spot();
             }
             Color color = Color.hsb(360 * Math.random(), 1, 1);
             mat.setDiffuseColor(color);
-            mat.setSpecularColor(Color.WHITE);
-            box.setMaterial(mat);
+            // mat.setSpecularColor(Color.SILVER);
+            setMaterial(mat);
         }
 
-        public Node getNode() {
-            return box;
-        }
-
-        public List<Spot> getSpots() {
+        private List<Spot> getSpots() {
             return Arrays.asList(spots);
+        }
+
+        private Color getColor() {
+            return mat.getDiffuseColor();
+        }
+
+        private void setColor(Color color) {
+            mat.setDiffuseColor(color);
         }
 
         private void draw() {
@@ -271,15 +297,15 @@ public class Lines3D extends Application {
             Point3D norm = Rotate.Y_AXIS.crossProduct(vec);
 
             // Note: Order of transforms is important
-            box.getTransforms().clear();
-            box.getTransforms().add(new Translate(mid.getX(), mid.getY(), mid.getZ()));
-            box.getTransforms().add(new Rotate(angle, norm));
-            box.getTransforms().add(new Scale(10, len, 10));
+            getTransforms().clear();
+            getTransforms().add(new Translate(mid.getX(), mid.getY(), mid.getZ()));
+            getTransforms().add(new Rotate(angle, norm));
+            getTransforms().add(new Scale(LINE_SIZE, len, LINE_SIZE));
         }
 
         public void update() {
             getSpots().forEach(Spot::update);
-            // rotateColor();
+            rotateColor();
             draw();
         }
 
@@ -306,7 +332,11 @@ public class Lines3D extends Application {
         }
 
         public void setPosition(Point3D position) {
-            this.position = position;
+            this.position = new Point3D(0, 0, 0).add(position);
+        }
+
+        public Point3D getVelocity() {
+            return velocity;
         }
 
         public void setVelocity(double dx, double dy, double dz) {
@@ -314,7 +344,7 @@ public class Lines3D extends Application {
         }
 
         public void setVelocity(Point3D velocity) {
-            this.velocity = velocity;
+            this.velocity = new Point3D(0, 0, 0).add(velocity);
         }
 
         public void update() {
