@@ -31,15 +31,13 @@ public class Lines3D extends Application {
     private static final int WIDTH = 1024;
     private static final int HEIGHT = 800;
     private static final double FIELD_SIZE = 512;
-    private static final double MAX_SPEED = 2.2;
-    private static final double NUM_LINES = 30;
+    private static final double MAX_SPEED = 4;
     private static final double LINE_SIZE = 1;
     private static final int FAN_SIZE = 150;
     private static final int NUM_FANS = 5;
 
     Group world = new Group();
     Group lineGroup = new Group();
-    List<Line> lines = new ArrayList<>();
     List<Fan> fans = new ArrayList<>();
 
     public static void main(String[] args) {
@@ -50,12 +48,12 @@ public class Lines3D extends Application {
     public void start(Stage primaryStage) throws Exception {
         // primaryStage.setResizable(false);
         Scene scene = new Scene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
-        scene.setFill(Color.SILVER);
+        scene.setFill(Color.BLACK);
         Group content = new Group();
 
         // Create camera
         PerspectiveCamera camera = new PerspectiveCamera(true);
-        camera.setTranslateZ(-1.5 * FIELD_SIZE);
+        camera.setTranslateZ(-1 * FIELD_SIZE);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
         camera.setFarClip(5 * FIELD_SIZE);
         scene.setCamera(camera);
@@ -68,10 +66,10 @@ public class Lines3D extends Application {
         light2.setTranslateZ(-5 * FIELD_SIZE);
         world.getChildren().addAll(light1, light2);
 
-        // Create boarder
-        Group boarder = createBoarder();
-        boarder.setVisible(false);
-        content.getChildren().add(boarder);
+        // Create border
+        Group border = createBorder();
+        border.setVisible(false);
+        content.getChildren().add(border);
 
         // Create content
         content.getChildren().add(createFans());
@@ -114,7 +112,7 @@ public class Lines3D extends Application {
                 camera.setTranslateZ(camera.getTranslateZ() - 50);
                 break;
             case B:
-                boarder.setVisible(!boarder.isVisible());
+                border.setVisible(!border.isVisible());
                 break;
             case ESCAPE:
                 Platform.exit();
@@ -126,7 +124,6 @@ public class Lines3D extends Application {
     }
 
     private void onUpdate() {
-        lines.forEach(Line::update);
         fans.forEach(Fan::update);
     }
 
@@ -152,26 +149,6 @@ public class Lines3D extends Application {
         return lineGroup;
     }
 
-    private Group createLines() {
-        Line line;
-        for (int i = 0; i < NUM_LINES; i++) {
-            line = createLine();
-            lines.add(line);
-            lineGroup.getChildren().add(line);
-        }
-        return lineGroup;
-    }
-
-    private Line createLine() {
-        Line line = new Line();
-        List<Spot> spots = line.getSpots();
-        spots.forEach(spot -> {
-            spot.setPosition(randomPoint(-FIELD_SIZE / 2, FIELD_SIZE / 2));
-            spot.setVelocity(randomPoint(-MAX_SPEED, MAX_SPEED));
-        });
-        return line;
-    }
-
     private Point3D randomPoint(double min, double max) {
         double x = (max - min) * Math.random() + min;
         double y = (max - min) * Math.random() + min;
@@ -179,10 +156,10 @@ public class Lines3D extends Application {
         return new Point3D(x, y, z);
     }
 
-    public Group createBoarder() throws Exception {
+    public Group createBorder() throws Exception {
         Group item = new Group();
 
-        final PhongMaterial matBlack = new PhongMaterial(Color.BLACK);
+        final PhongMaterial mat = new PhongMaterial(Color.SILVER);
 
         Box edge;
         double[] v = { -FIELD_SIZE / 2, FIELD_SIZE / 2 };
@@ -192,7 +169,7 @@ public class Lines3D extends Application {
                 edge = new Box(1, 1, FIELD_SIZE);
                 edge.setTranslateX(x);
                 edge.setTranslateY(y);
-                edge.setMaterial(matBlack);
+                edge.setMaterial(mat);
                 item.getChildren().add(edge);
             }
         }
@@ -201,7 +178,7 @@ public class Lines3D extends Application {
                 edge = new Box(FIELD_SIZE, 1, 1);
                 edge.setTranslateY(y);
                 edge.setTranslateZ(z);
-                edge.setMaterial(matBlack);
+                edge.setMaterial(mat);
                 item.getChildren().add(edge);
             }
         }
@@ -210,7 +187,7 @@ public class Lines3D extends Application {
                 edge = new Box(1, FIELD_SIZE, 1);
                 edge.setTranslateX(x);
                 edge.setTranslateZ(z);
-                edge.setMaterial(matBlack);
+                edge.setMaterial(mat);
                 item.getChildren().add(edge);
             }
         }
