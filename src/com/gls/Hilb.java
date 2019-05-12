@@ -95,10 +95,6 @@ public class Hilb extends Application {
             h1(order, 1, size);
         }
 
-        public int[] getSeq() {
-            return seq;
-        }
-
         public int[] asPoints() {
             int[] result = new int[2 * seq.length];
             int i = 0;
@@ -126,7 +122,7 @@ public class Hilb extends Application {
 
         public String toString() {
             StringBuffer sb = new StringBuffer();
-            sb.append("Order: " + ORDER + "\n");
+            sb.append("Order: " + order + "\n");
             sb.append("Seq: ");
             for (int v : seq) {
                 sb.append(" " + v);
