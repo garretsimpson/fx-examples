@@ -3,6 +3,7 @@ package com.gls;
 import java.util.ArrayList;
 import java.util.List;
 
+import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Parent;
@@ -10,6 +11,7 @@ import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.Polyline;
 import javafx.scene.transform.Scale;
 import javafx.stage.Stage;
@@ -40,8 +42,16 @@ public class Hilb extends Application {
 
     private static final int SIZE_X = 1024;
     private static final int SIZE_Y = 800;
-    private static final int ORDER = 7;
-    private static final int SCALE = 5;
+    private static final int ORDER = 5;
+    private static final double SCALE = 1.0 * SIZE_Y / (1 << ORDER);
+    private static final double POS_X = (SIZE_X - SIZE_Y + SCALE) / 2;
+    private static final double POS_Y = SCALE / 2;
+
+    Hilbert hcurv = new Hilbert(ORDER);
+    int[] points = hcurv.asPoints();
+    int pos = 2;
+
+    Pane root = new Pane();
 
     public static void main(String[] args) {
         launch(args);
@@ -49,7 +59,7 @@ public class Hilb extends Application {
 
     @Override
     public void start(Stage stage) {
-        stage.setScene(new Scene(createContent(), SIZE_X, SIZE_Y));
+        stage.setScene(new Scene(createContent(), SIZE_X, SIZE_Y, Color.SILVER));
         stage.show();
 
         stage.getScene().setOnKeyPressed(e -> {
@@ -60,25 +70,57 @@ public class Hilb extends Application {
     }
 
     private Parent createContent() {
-        Pane root = new Pane();
-        Hilbert hcurv = new Hilbert(ORDER);
+        root = new Pane();
 
-        Polyline pl = new Polyline();
-        int[] values = hcurv.asPoints();
         List<Double> points = new ArrayList<>();
-        for (int v : values) {
+        for (int v : hcurv.asPoints()) {
             points.add(1.0 * v);
         }
+        Polyline pl = new Polyline();
         pl.getPoints().addAll(points);
         pl.setStroke(Color.BLACK);
         pl.setStrokeWidth(0.5);
 
-        pl.setTranslateX(SCALE);
-        pl.setTranslateY(SCALE);
+        pl.setTranslateX(POS_X);
+        pl.setTranslateY(POS_Y);
         pl.getTransforms().add(new Scale(SCALE, SCALE));
         root.getChildren().add(pl);
 
         return root;
+    }
+
+    Parent drawContent() {
+        root = new Pane();
+
+        AnimationTimer timer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                onUpdate();
+            }
+        };
+        timer.start();
+
+        return root;
+    }
+
+    void onUpdate() {
+        if (pos >= points.length) {
+            return;
+        }
+        int x0 = points[pos - 2];
+        int y0 = points[pos - 1];
+        int x1 = points[pos++];
+        int y1 = points[pos++];
+        Line line = new Line(x0, y0, x1, y1);
+        line.setStroke(Color.BLACK);
+        // line.setStroke(Color.hsb(hue, 1, 1));
+        // hue += 360.0 / 256;
+        line.setStrokeWidth(0.5);
+
+        line.setTranslateX(POS_X);
+        line.setTranslateY(POS_Y);
+        line.getTransforms().add(new Scale(SCALE, SCALE));
+        root.getChildren().add(line);
     }
 
     private static class Hilbert {
