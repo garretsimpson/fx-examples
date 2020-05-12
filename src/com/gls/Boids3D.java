@@ -29,18 +29,18 @@ import javafx.stage.Stage;
  */
 public class Boids3D extends Application {
 
-    private static final int WIDTH = 1024;
-    private static final int HEIGHT = 800;
-    private static final double FIELD_SIZE = 1000.0;
+    private static final int WIDTH = 1600;
+    private static final int HEIGHT = 900;
+    private static final double FIELD_SIZE = 2000.0;
 
-    private static final int NUM_BOIDS = 200;
+    private static final int NUM_BOIDS = 400;
     private static final double BOID_SIZE = 10.0;
     private static final double MIN_SPEED = 0.0;
     private static final double MAX_SPEED = 2.0;
     private static final double MAX_DELTA = 1.0;
-    private static final double MAX_VIEW = 150.0;
+    private static final double MAX_VIEW = 100.0;
     private static final double PUSH_SCALE = 1.0;
-    private static final double PULL_SCALE = 0.6;
+    private static final double PULL_SCALE = 0.8;
     private static final double MATCH_SCALE = 0.1;
 
     private static final Color FILL_COLOR = Color.SILVER;
@@ -140,6 +140,9 @@ public class Boids3D extends Application {
             case B:
                 border.setVisible(!border.isVisible());
                 break;
+            case DIGIT1:
+                scramble();
+                break;
             case SPACE:
                 pause = !pause;
                 break;
@@ -150,6 +153,13 @@ public class Boids3D extends Application {
                 break;
             }
         });
+    }
+
+    private void scramble() {
+        for (int i = 0; i < NUM_BOIDS; i++) {
+            Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+            boids[i].setVelocity(vec.multiply(MIN_SPEED + (MAX_SPEED - MIN_SPEED) / 2.0));
+        }
     }
 
     private void onUpdate() {
@@ -172,7 +182,7 @@ public class Boids3D extends Application {
                 Point3D vec = boids[j].getPosition().subtract(boids[i].getPosition());
                 vects[i][j] = vec;
                 vects[j][i] = vec.multiply(-1.0);
-                if (vec.magnitude() < BOID_SIZE) {
+                if (vec.magnitude() < BOID_SIZE / 2.0) {
                     System.out.println("BOOM!");
                 }
             }
@@ -244,7 +254,7 @@ public class Boids3D extends Application {
         Boid boid = new Boid(index);
         boid.setPosition(randomPoint(-FIELD_SIZE / 2.0, FIELD_SIZE / 2.0));
         Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-        boid.setVelocity(vec.multiply(MIN_SPEED + (MAX_SPEED - MIN_SPEED) / 2.0));
+        boid.setVelocity(vec.multiply((MIN_SPEED + MAX_SPEED) / 2.0));
         boid.draw();
 
         return boid;
@@ -268,10 +278,10 @@ public class Boids3D extends Application {
             Sphere body = new Sphere(BOID_SIZE / 2);
             body.setScaleY(3);
             body.setMaterial(mat);
-            Box wings = new Box(BOID_SIZE * 4, BOID_SIZE, BOID_SIZE / 5);
+            Box wings = new Box(BOID_SIZE * 4, BOID_SIZE, BOID_SIZE / 6);
             wings.setTranslateY(BOID_SIZE / 4);
             wings.setMaterial(mat);
-            Box tail = new Box(BOID_SIZE / 5, BOID_SIZE, BOID_SIZE);
+            Box tail = new Box(BOID_SIZE / 6, BOID_SIZE, BOID_SIZE);
             tail.setTranslateY(-BOID_SIZE);
             tail.setTranslateZ(-BOID_SIZE / 2);
             tail.setMaterial(mat);
