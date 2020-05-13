@@ -35,7 +35,7 @@ public class Boids3D extends Application {
     private static final double FIELD_SIZE_Y = 1350.0;
     private static final double FIELD_SIZE_Z = 2400.0;
 
-    private static final int NUM_BOIDS = 400;
+    private static final int NUM_BOIDS = 500;
     private static final double BOID_SIZE = 1.2;
     private static final double MIN_SPEED = 0.0;
     private static final double MAX_SPEED = 3.0;
@@ -298,6 +298,8 @@ public class Boids3D extends Application {
         final PhongMaterial tailMat = new PhongMaterial();
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
+        private List<Boid> nearbyBoids;
+        private Point3D towardNearby;
 
         public Boid(int index) {
             boid = new Group();
@@ -348,7 +350,7 @@ public class Boids3D extends Application {
         }
 
         public void setPosition(Point3D position) {
-            this.position = new Point3D(position.getX(), position.getY(), position.getZ());
+            this.position = position;
         }
 
         public Point3D getVelocity() {
@@ -360,7 +362,15 @@ public class Boids3D extends Application {
         }
 
         public void setVelocity(Point3D velocity) {
-            this.velocity = new Point3D(velocity.getX(), velocity.getY(), velocity.getZ());
+            this.velocity = velocity;
+        }
+
+        private Point3D calcTowardNearby() {
+            Point3D vec = Point3D.ZERO;
+            for (Boid nearbyBoid : nearbyBoids) {
+                vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
+            }
+            return truncate(vec);
         }
 
         private Point3D towardCenter() {
@@ -372,52 +382,27 @@ public class Boids3D extends Application {
             return truncate(adjust(vec));
         }
 
+        private Point3D towardNearby() {
+            return towardNearby.multiply(PULL_SCALE);
+        }
+
         private Point3D avoidNearby() {
-            List<Boid> nearbyBoids = getBoidsInRange(index, MAX_VIEW);
-            if (nearbyBoids.size() == 0) {
-                return Point3D.ZERO;
-            }
-            Point3D vec = Point3D.ZERO;
-            for (Boid nearbyBoid : nearbyBoids) {
-                vec = vec.add(adjust(vects[nearbyBoid.getIndex()][index]));
-            }
-            return truncate(vec);
+            return towardNearby.multiply(-PUSH_SCALE);
         }
 
         private Point3D matchVelocity() {
-            List<Boid> nearbyBoids = getBoidsInRange(index, MAX_VIEW);
-            if (nearbyBoids.size() == 0) {
-                return Point3D.ZERO;
-            }
             Point3D vec = Point3D.ZERO;
             for (Boid nearbyBoid : nearbyBoids) {
                 // TODO: Should this be weighted by the neighbor's proximity?
                 vec = vec.add(nearbyBoid.getVelocity());
             }
-            return truncate(vec);
-        }
-
-        private Point3D towardNearby() {
-            List<Boid> nearbyBoids = getBoidsInRange(index, MAX_VIEW);
-            if (nearbyBoids.size() == 0) {
-                setColor(BOID_COLOR);
-                return Point3D.ZERO;
-            }
-            // Use the range RED to BLUE (0.0 to 240.0)
-            // Assume max of 5 nearby boids
-            double hue = 240.0 * nearbyBoids.size() / 5.0;
-            setColor(Color.hsb(hue, 0.5, 1.0));
-            Point3D vec = Point3D.ZERO;
-            for (Boid nearbyBoid : nearbyBoids) {
-                vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
-            }
-            return truncate(vec);
+            return truncate(vec).multiply(MATCH_SCALE);
         }
 
         // Objects further away should have less force
         // Adjust the vector by dividing it by the square of its length
         private Point3D adjust(Point3D vec) {
-            return vec.multiply(1.0 / (Math.pow(vec.magnitude(), 2.0)));
+            return vec.multiply(Math.pow(vec.magnitude(), -2.0));
         }
 
         // Truncate the vector to a max magnitude of 1.0
@@ -446,12 +431,14 @@ public class Boids3D extends Application {
         }
 
         public void update() {
+            // Update list of nearby boids
+            nearbyBoids = getBoidsInRange(index, MAX_VIEW);
+
+            // Calculate vector toward nearby boids
+            towardNearby = calcTowardNearby();
+
             // Steer - Adjust velocity according to forces
-            Point3D delta0 = towardCenter();
-            Point3D delta1 = avoidNearby().multiply(PUSH_SCALE);
-            Point3D delta2 = matchVelocity().multiply(MATCH_SCALE);
-            Point3D delta3 = towardNearby().multiply(PULL_SCALE);
-            Point3D delta = prioritize(Arrays.asList(delta1, delta0, delta2, delta3));
+            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby()));
 
             // Add delta, but don't exceed maximum speed
             velocity = velocity.add(delta);
@@ -464,7 +451,19 @@ public class Boids3D extends Application {
             position = wrapPosition(newPos);
 
             // Render the boid
+            updateColor();
             draw();
+        }
+
+        void updateColor() {
+            if (nearbyBoids.size() == 0) {
+                color = BOID_COLOR;
+                return;
+            }
+            // Use the range RED to BLUE (0.0 to 240.0)
+            // Assume max of 5 nearby boids
+            double hue = 240.0 * nearbyBoids.size() / 5.0;
+            color = Color.hsb(hue, 0.5, 1.0);
         }
 
         private Point3D wrapPosition(Point3D pos) {
@@ -515,6 +514,7 @@ public class Boids3D extends Application {
             double angle = Rotate.Y_AXIS.angle(velocity);
             Point3D norm = Rotate.Y_AXIS.crossProduct(velocity);
             boid.getTransforms().add(new Rotate(angle, norm));
+
             // Rotate the tail upwards
             if (up) {
                 Point3D upward = boid.parentToLocal(position.getX(), position.getY() - 1000.0, position.getZ())
