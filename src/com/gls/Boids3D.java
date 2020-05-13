@@ -36,9 +36,9 @@ public class Boids3D extends Application {
     private static final double FIELD_SIZE_Z = 2400.0;
 
     private static final int NUM_BOIDS = 400;
-    private static final double BOID_SIZE = 10.0;
+    private static final double BOID_SIZE = 1.2;
     private static final double MIN_SPEED = 0.0;
-    private static final double MAX_SPEED = 2.0;
+    private static final double MAX_SPEED = 3.0;
     private static final double MAX_DELTA = 1.0;
     private static final double MAX_VIEW = 100.0;
     private static final double PUSH_SCALE = 1.0;
@@ -49,6 +49,7 @@ public class Boids3D extends Application {
     private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
 
     boolean pause = false;
+    boolean up = true;
 
     Group world = new Group();
     Boid[] boids = new Boid[NUM_BOIDS];
@@ -137,6 +138,9 @@ public class Boids3D extends Application {
                 border.setVisible(!border.isVisible());
                 break;
             case DIGIT1:
+                up = !up;
+                break;
+            case DIGIT2:
                 scramble();
                 break;
             case SPACE:
@@ -299,25 +303,27 @@ public class Boids3D extends Application {
             boid = new Group();
             this.index = index;
 
-            // double hue = (360.0 * index) / NUM_BOIDS;
-            // color = Color.hsb(hue, 0.5, 1.0);
             boidMat.setDiffuseColor(color);
             boidMat.setSpecularColor(Color.GRAY);
-            tailMat.setDiffuseColor(Color.DARKGREEN);
-            tailMat.setSpecularColor(Color.GRAY);
+            // tailMat.setDiffuseColor(Color.DARKGREEN);
+            // tailMat.setSpecularColor(Color.GRAY);
 
-            Sphere body = new Sphere(BOID_SIZE / 2);
+            Sphere body = new Sphere(5);
             body.setScaleY(3);
             body.setMaterial(boidMat);
-            Box wings = new Box(BOID_SIZE * 4, BOID_SIZE, BOID_SIZE / 6);
-            wings.setTranslateY(BOID_SIZE / 4);
+            Box wings = new Box(40, 10, 2);
+            wings.setTranslateY(2.5);
             wings.setMaterial(boidMat);
-            Box tail = new Box(BOID_SIZE / 6, BOID_SIZE, BOID_SIZE);
-            tail.setTranslateY(-BOID_SIZE);
-            tail.setTranslateZ(-BOID_SIZE / 2);
+            Box tail = new Box(2, 10, 10);
+            tail.setTranslateY(-10);
+            tail.setTranslateZ(5);
             tail.setMaterial(boidMat);
 
-            boid.getChildren().addAll(body, wings, tail);
+            Group figure = new Group(Arrays.asList(body, wings, tail));
+            figure.setScaleX(BOID_SIZE);
+            figure.setScaleY(BOID_SIZE);
+            figure.setScaleZ(BOID_SIZE);
+            boid.getChildren().addAll(figure);
         }
 
         public Node getNode() {
@@ -441,7 +447,7 @@ public class Boids3D extends Application {
 
         public void update() {
             // Steer - Adjust velocity according to forces
-            Point3D delta0 = towardCenter().multiply(PULL_SCALE);
+            Point3D delta0 = towardCenter();
             Point3D delta1 = avoidNearby().multiply(PUSH_SCALE);
             Point3D delta2 = matchVelocity().multiply(MATCH_SCALE);
             Point3D delta3 = towardNearby().multiply(PULL_SCALE);
@@ -509,9 +515,18 @@ public class Boids3D extends Application {
             double angle = Rotate.Y_AXIS.angle(velocity);
             Point3D norm = Rotate.Y_AXIS.crossProduct(velocity);
             boid.getTransforms().add(new Rotate(angle, norm));
-            // Point3D vec = new Point3D(-velocity.getX(), 0.0, -velocity.getZ());
-            // angle = Rotate.Z_AXIS.angle(vec);
-            // boid.getTransforms().add(new Rotate(angle, Rotate.Y_AXIS));
+            // Rotate the tail upwards
+            if (up) {
+                Point3D upward = boid.parentToLocal(position.getX(), position.getY() - 1000.0, position.getZ())
+                    .normalize();
+                Point3D vec = new Point3D(upward.getX(), 0.0, upward.getZ());
+                angle = Rotate.Z_AXIS.angle(vec);
+                if (vec.getX() < 0.0) {
+                    angle = -angle;
+                }
+                boid.getTransforms().add(new Rotate(angle, Rotate.Y_AXIS));
+            }
         }
     }
+
 }
