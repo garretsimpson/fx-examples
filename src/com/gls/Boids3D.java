@@ -31,7 +31,9 @@ public class Boids3D extends Application {
 
     private static final int WIDTH = 1600;
     private static final int HEIGHT = 900;
-    private static final double FIELD_SIZE = 2000.0;
+    private static final double FIELD_SIZE_X = 2400.0;
+    private static final double FIELD_SIZE_Y = 1350.0;
+    private static final double FIELD_SIZE_Z = 2400.0;
 
     private static final int NUM_BOIDS = 400;
     private static final double BOID_SIZE = 10.0;
@@ -43,13 +45,12 @@ public class Boids3D extends Application {
     private static final double PULL_SCALE = 0.8;
     private static final double MATCH_SCALE = 0.1;
 
-    private static final Color FILL_COLOR = Color.SILVER;
-    private static final Color BOID_COLOR = Color.DARKSLATEGRAY;
+    private static final Color FILL_COLOR = Color.LIGHTSKYBLUE;
+    private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
 
     boolean pause = false;
 
     Group world = new Group();
-    // List<Boid> boids = new ArrayList<>();
     Boid[] boids = new Boid[NUM_BOIDS];
     Point3D[][] vects = new Point3D[NUM_BOIDS][NUM_BOIDS];
 
@@ -67,24 +68,18 @@ public class Boids3D extends Application {
 
         // Create camera
         PerspectiveCamera camera = new PerspectiveCamera(true);
-        camera.setTranslateZ(-2.0 * FIELD_SIZE);
-        // camera.setTranslateY(-0.5 * FIELD_SIZE);
+        camera.setTranslateZ(-1.5 * FIELD_SIZE_Z);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
-        camera.setFarClip(5 * FIELD_SIZE);
+        camera.setFarClip(5.0 * FIELD_SIZE_Z);
         scene.setCamera(camera);
 
         // Create lights
-        AmbientLight light1 = new AmbientLight(Color.DARKGREY);
+        AmbientLight light1 = new AmbientLight(Color.GRAY);
         PointLight light2 = new PointLight(Color.WHITE);
-        light2.setTranslateX(-FIELD_SIZE);
-        light2.setTranslateY(-FIELD_SIZE);
-        light2.setTranslateZ(-FIELD_SIZE);
-        content.getChildren().addAll(light1, light2);
-
-        // Reference items
-        Sphere viewSphere = new Sphere(MAX_VIEW);
-        viewSphere.setMaterial(new PhongMaterial(Color.rgb(255, 255, 0, 0.001)));
-        // content.getChildren().add(viewSphere);
+        light2.setTranslateX(-FIELD_SIZE_X);
+        light2.setTranslateY(-FIELD_SIZE_Y);
+        light2.setTranslateZ(-FIELD_SIZE_Z);
+        world.getChildren().addAll(light1, light2);
 
         // Create border
         Group border = createBorder();
@@ -97,7 +92,8 @@ public class Boids3D extends Application {
             boids[i] = boid;
             content.getChildren().add(boid.getNode());
         }
-        // content.getChildren().add(viewSphere);
+
+        // content.getChildren().add(colorTest());
 
         // Add content
         world.getChildren().add(content);
@@ -155,11 +151,31 @@ public class Boids3D extends Application {
         });
     }
 
-    private void scramble() {
-        for (int i = 0; i < NUM_BOIDS; i++) {
-            Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-            boids[i].setVelocity(vec.multiply(MIN_SPEED + (MAX_SPEED - MIN_SPEED) / 2.0));
+    // Create a color test pattern
+    // Hue - range is 0.0 to 360.0
+    // - 0.0 RED
+    // - 60.0 YELLOW
+    // - 120.0 GREEN
+    // - 180.0 CYAN
+    // - 240.0 BLUE
+    // - 300.0 MAGENTA
+    private Group colorTest() {
+        Group items = new Group();
+        Color color;
+        int NUM_ITEMS = 360;
+
+        for (int i = 0; i < NUM_ITEMS; i++) {
+            double hue = 1.0 * i;
+            color = Color.hsb(hue, 1.0, 1.0);
+            Sphere s = new Sphere(50);
+            PhongMaterial mat = new PhongMaterial();
+            mat.setDiffuseColor(color);
+            s.setMaterial(mat);
+            double x = (1.0 * i * FIELD_SIZE_X / NUM_ITEMS) - (FIELD_SIZE_X / 2.0);
+            s.setTranslateX(x);
+            items.getChildren().add(s);
         }
+        return items;
     }
 
     private void onUpdate() {
@@ -169,6 +185,13 @@ public class Boids3D extends Application {
         }
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
+        }
+    }
+
+    private void scramble() {
+        for (int i = 0; i < NUM_BOIDS; i++) {
+            Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
+            boids[i].setVelocity(vec.multiply(MIN_SPEED + (MAX_SPEED - MIN_SPEED) / 2.0));
         }
     }
 
@@ -209,29 +232,31 @@ public class Boids3D extends Application {
         final PhongMaterial matBlack = new PhongMaterial(Color.BLACK);
 
         Box edge;
-        double[] v = { -FIELD_SIZE / 2, FIELD_SIZE / 2 };
+        double[] vx = { -FIELD_SIZE_X / 2, FIELD_SIZE_X / 2 };
+        double[] vy = { -FIELD_SIZE_Y / 2, FIELD_SIZE_Y / 2 };
+        double[] vz = { -FIELD_SIZE_Z / 2, FIELD_SIZE_Z / 2 };
 
-        for (double x : v) {
-            for (double y : v) {
-                edge = new Box(1, 1, FIELD_SIZE);
+        for (double x : vx) {
+            for (double y : vy) {
+                edge = new Box(1, 1, FIELD_SIZE_Z);
                 edge.setTranslateX(x);
                 edge.setTranslateY(y);
                 edge.setMaterial(matBlack);
                 item.getChildren().add(edge);
             }
         }
-        for (double y : v) {
-            for (double z : v) {
-                edge = new Box(FIELD_SIZE, 1, 1);
+        for (double y : vy) {
+            for (double z : vz) {
+                edge = new Box(FIELD_SIZE_X, 1, 1);
                 edge.setTranslateY(y);
                 edge.setTranslateZ(z);
                 edge.setMaterial(matBlack);
                 item.getChildren().add(edge);
             }
         }
-        for (double x : v) {
-            for (double z : v) {
-                edge = new Box(1, FIELD_SIZE, 1);
+        for (double x : vx) {
+            for (double z : vz) {
+                edge = new Box(1, FIELD_SIZE_Y, 1);
                 edge.setTranslateX(x);
                 edge.setTranslateZ(z);
                 edge.setMaterial(matBlack);
@@ -242,17 +267,18 @@ public class Boids3D extends Application {
         return item;
     }
 
-    private Point3D randomPoint(double min, double max) {
-        double x = (max - min) * Math.random() + min;
-        double y = (max - min) * Math.random() + min;
-        double z = (max - min) * Math.random() + min;
+    private Point3D randomPoint(double minX, double maxX, double minY, double maxY, double minZ, double maxZ) {
+        double x = (maxX - minX) * Math.random() + minX;
+        double y = (maxY - minY) * Math.random() + minY;
+        double z = (maxZ - minZ) * Math.random() + minZ;
 
         return new Point3D(x, y, z);
     }
 
     private Boid createBoid(int index) {
         Boid boid = new Boid(index);
-        boid.setPosition(randomPoint(-FIELD_SIZE / 2.0, FIELD_SIZE / 2.0));
+        boid.setPosition(randomPoint(-FIELD_SIZE_X / 2.0, FIELD_SIZE_X / 2.0, -FIELD_SIZE_Y / 2.0, FIELD_SIZE_Y / 2.0,
+            -FIELD_SIZE_Z / 2.0, FIELD_SIZE_Z / 2.0));
         Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
         boid.setVelocity(vec.multiply((MIN_SPEED + MAX_SPEED) / 2.0));
         boid.draw();
@@ -264,6 +290,8 @@ public class Boids3D extends Application {
         private Group boid;
         private int index;
         private Color color = BOID_COLOR;
+        final PhongMaterial boidMat = new PhongMaterial();
+        final PhongMaterial tailMat = new PhongMaterial();
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
 
@@ -271,20 +299,23 @@ public class Boids3D extends Application {
             boid = new Group();
             this.index = index;
 
-            final PhongMaterial mat = new PhongMaterial();
-            mat.setDiffuseColor(color);
-            mat.setSpecularColor(Color.GRAY);
+            // double hue = (360.0 * index) / NUM_BOIDS;
+            // color = Color.hsb(hue, 0.5, 1.0);
+            boidMat.setDiffuseColor(color);
+            boidMat.setSpecularColor(Color.GRAY);
+            tailMat.setDiffuseColor(Color.DARKGREEN);
+            tailMat.setSpecularColor(Color.GRAY);
 
             Sphere body = new Sphere(BOID_SIZE / 2);
             body.setScaleY(3);
-            body.setMaterial(mat);
+            body.setMaterial(boidMat);
             Box wings = new Box(BOID_SIZE * 4, BOID_SIZE, BOID_SIZE / 6);
             wings.setTranslateY(BOID_SIZE / 4);
-            wings.setMaterial(mat);
+            wings.setMaterial(boidMat);
             Box tail = new Box(BOID_SIZE / 6, BOID_SIZE, BOID_SIZE);
             tail.setTranslateY(-BOID_SIZE);
             tail.setTranslateZ(-BOID_SIZE / 2);
-            tail.setMaterial(mat);
+            tail.setMaterial(boidMat);
 
             boid.getChildren().addAll(body, wings, tail);
         }
@@ -295,6 +326,10 @@ public class Boids3D extends Application {
 
         public int getIndex() {
             return index;
+        }
+
+        public void setColor(Color color) {
+            this.color = color;
         }
 
         public Point3D getPosition() {
@@ -324,7 +359,8 @@ public class Boids3D extends Application {
 
         private Point3D towardCenter() {
             Point3D vec = position.multiply(-1.0);
-            if (vec.magnitude() > MAX_VIEW) {
+            double size = Math.min(Math.min(FIELD_SIZE_X, FIELD_SIZE_Y), FIELD_SIZE_Z);
+            if (vec.magnitude() > size) {
                 return Point3D.ZERO;
             }
             return truncate(adjust(vec));
@@ -358,8 +394,13 @@ public class Boids3D extends Application {
         private Point3D towardNearby() {
             List<Boid> nearbyBoids = getBoidsInRange(index, MAX_VIEW);
             if (nearbyBoids.size() == 0) {
+                setColor(BOID_COLOR);
                 return Point3D.ZERO;
             }
+            // Use the range RED to BLUE (0.0 to 240.0)
+            // Assume max of 5 nearby boids
+            double hue = 240.0 * nearbyBoids.size() / 5.0;
+            setColor(Color.hsb(hue, 0.5, 1.0));
             Point3D vec = Point3D.ZERO;
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
@@ -400,11 +441,11 @@ public class Boids3D extends Application {
 
         public void update() {
             // Steer - Adjust velocity according to forces
-            // Point3D delta0 = towardCenter().multiply(PULL_SCALE);
+            Point3D delta0 = towardCenter().multiply(PULL_SCALE);
             Point3D delta1 = avoidNearby().multiply(PUSH_SCALE);
             Point3D delta2 = matchVelocity().multiply(MATCH_SCALE);
             Point3D delta3 = towardNearby().multiply(PULL_SCALE);
-            Point3D delta = prioritize(Arrays.asList(delta1, delta2, delta3));
+            Point3D delta = prioritize(Arrays.asList(delta1, delta0, delta2, delta3));
 
             // Add delta, but don't exceed maximum speed
             velocity = velocity.add(delta);
@@ -422,12 +463,12 @@ public class Boids3D extends Application {
 
         private Point3D wrapPosition(Point3D pos) {
             // Wrap around world
-            double minX = -FIELD_SIZE / 2.0;
-            double minY = -FIELD_SIZE / 2.0;
-            double minZ = -FIELD_SIZE / 2.0;
-            double maxX = FIELD_SIZE / 2.0;
-            double maxY = FIELD_SIZE / 2.0;
-            double maxZ = FIELD_SIZE / 2.0;
+            double minX = -FIELD_SIZE_X / 2.0;
+            double minY = -FIELD_SIZE_Y / 2.0;
+            double minZ = -FIELD_SIZE_Z / 2.0;
+            double maxX = FIELD_SIZE_X / 2.0;
+            double maxY = FIELD_SIZE_Y / 2.0;
+            double maxZ = FIELD_SIZE_Z / 2.0;
             double posX = pos.getX();
             double posY = pos.getY();
             double posZ = pos.getZ();
@@ -458,13 +499,19 @@ public class Boids3D extends Application {
         }
 
         public void draw() {
+            boidMat.setDiffuseColor(color);
             boid.getTransforms().clear();
+
             // Move it to the correct position
             boid.getTransforms().add(new Translate(position.getX(), position.getY(), position.getZ()));
+
             // Rotate the boid to align with velocity
             double angle = Rotate.Y_AXIS.angle(velocity);
             Point3D norm = Rotate.Y_AXIS.crossProduct(velocity);
             boid.getTransforms().add(new Rotate(angle, norm));
+            // Point3D vec = new Point3D(-velocity.getX(), 0.0, -velocity.getZ());
+            // angle = Rotate.Z_AXIS.angle(vec);
+            // boid.getTransforms().add(new Rotate(angle, Rotate.Y_AXIS));
         }
     }
 }
