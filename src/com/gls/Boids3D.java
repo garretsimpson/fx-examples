@@ -35,7 +35,7 @@ public class Boids3D extends Application {
     private static final double FIELD_SIZE_Y = 1350.0;
     private static final double FIELD_SIZE_Z = 2400.0;
 
-    private static final int NUM_BOIDS = 500;
+    private static final int NUM_BOIDS = 400;
     private static final double BOID_SIZE = 1.2;
     private static final double MIN_SPEED = 0.0;
     private static final double MAX_SPEED = 3.0;
@@ -61,8 +61,6 @@ public class Boids3D extends Application {
 
     @Override
     public void start(Stage primaryStage) throws Exception {
-        Group content = new Group();
-
         // primaryStage.setResizable(false);
         Scene scene = new Scene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
         scene.setFill(FILL_COLOR);
@@ -82,6 +80,9 @@ public class Boids3D extends Application {
         light2.setTranslateZ(-FIELD_SIZE_Z);
         world.getChildren().addAll(light1, light2);
 
+        // Create content
+        Group content = new Group();
+
         // Create border
         Group border = createBorder();
         border.setVisible(true);
@@ -94,9 +95,6 @@ public class Boids3D extends Application {
             content.getChildren().add(boid.getNode());
         }
 
-        // content.getChildren().add(colorTest());
-
-        // Add content
         world.getChildren().add(content);
 
         // Display scene
@@ -108,8 +106,9 @@ public class Boids3D extends Application {
             public void handle(long now) {
                 if (pause) {
                     content.getTransforms().add(new Rotate(-0.3, Rotate.Y_AXIS));
+                } else {
+                    onUpdate();
                 }
-                onUpdate();
             }
         };
         timer.start();
@@ -117,16 +116,16 @@ public class Boids3D extends Application {
         primaryStage.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             switch (event.getCode()) {
             case UP:
-                content.getTransforms().add(new Rotate(-10, Rotate.X_AXIS));
+                content.getTransforms().add(new Rotate(10, content.parentToLocal(Rotate.X_AXIS)));
                 break;
             case DOWN:
-                content.getTransforms().add(new Rotate(10, Rotate.X_AXIS));
+                content.getTransforms().add(new Rotate(-10, content.parentToLocal(Rotate.X_AXIS)));
                 break;
             case LEFT:
-                content.getTransforms().add(new Rotate(10, Rotate.Y_AXIS));
+                content.getTransforms().add(new Rotate(-10, Rotate.Y_AXIS));
                 break;
             case RIGHT:
-                content.getTransforms().add(new Rotate(-10, Rotate.Y_AXIS));
+                content.getTransforms().add(new Rotate(10, Rotate.Y_AXIS));
                 break;
             case W:
                 camera.setTranslateZ(camera.getTranslateZ() + 50);
@@ -138,10 +137,10 @@ public class Boids3D extends Application {
                 border.setVisible(!border.isVisible());
                 break;
             case DIGIT1:
-                up = !up;
+                scramble();
                 break;
             case DIGIT2:
-                scramble();
+                up = !up;
                 break;
             case SPACE:
                 pause = !pause;
@@ -184,9 +183,6 @@ public class Boids3D extends Application {
 
     private void onUpdate() {
         computeVects();
-        if (pause) {
-            return;
-        }
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
         }
@@ -461,8 +457,8 @@ public class Boids3D extends Application {
                 return;
             }
             // Use the range RED to BLUE (0.0 to 240.0)
-            // Assume max of 5 nearby boids
-            double hue = 240.0 * nearbyBoids.size() / 5.0;
+            // Assume max of 8 nearby boids
+            double hue = 240.0 * nearbyBoids.size() / 8.0;
             color = Color.hsb(hue, 0.5, 1.0);
         }
 
