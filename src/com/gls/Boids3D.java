@@ -25,6 +25,11 @@ import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
 
 /**
+ * 3D Boids This JavaFX application implements the Boids algorithm.
+ * 
+ * References http://www.red3d.com/cwr/boids/
+ * http://www.cs.toronto.edu/~dt/siggraph97-course/cwr87/
+ * 
  * @author Garret Simpson (gsimpson@gmail.com)
  */
 public class Boids3D extends Application {
@@ -44,6 +49,7 @@ public class Boids3D extends Application {
     private static final double PUSH_SCALE = 1.0;
     private static final double PULL_SCALE = 0.8;
     private static final double MATCH_SCALE = 0.1;
+    private static final double CENTER_SCALE = 1.0;
 
     private static final Color FILL_COLOR = Color.LIGHTSKYBLUE;
     private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
@@ -54,6 +60,8 @@ public class Boids3D extends Application {
     Group world = new Group();
     Boid[] boids = new Boid[NUM_BOIDS];
     Point3D[][] vects = new Point3D[NUM_BOIDS][NUM_BOIDS];
+
+    Metric breakCount = new Metric("Break");
 
     public static void main(String[] args) {
         launch(args);
@@ -182,10 +190,12 @@ public class Boids3D extends Application {
     }
 
     private void onUpdate() {
+        breakCount.reset();
         computeVects();
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
         }
+        System.out.println(breakCount);
     }
 
     private void scramble() {
@@ -212,6 +222,7 @@ public class Boids3D extends Application {
         }
     }
 
+    // TODO: Use angle of vision in front of boid
     private List<Boid> getBoidsInRange(int index, double range) {
         ArrayList<Boid> res = new ArrayList<>();
         for (int i = 0; i < NUM_BOIDS; i++) {
@@ -295,7 +306,6 @@ public class Boids3D extends Application {
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
         private List<Boid> nearbyBoids;
-        private Point3D towardNearby;
 
         public Boid(int index) {
             boid = new Group();
@@ -361,29 +371,56 @@ public class Boids3D extends Application {
             this.velocity = velocity;
         }
 
-        private Point3D calcTowardNearby() {
+        private Point3D towardCenter() {
+            Point3D vec = position.multiply(-1.0);
+            return truncate(adjust(vec)).multiply(CENTER_SCALE);
+        }
+
+        /*
+         * The toward function according to the spec. This seems to have interesting
+         * "follow the leader" behaviors, but also has some jerkiness.
+         * 
+         * Note: The subtle difference between toward and avoid is that toward is an
+         * adjusted sum (average) of vectors, while avoid is a sum of adjusted vectors.
+         * 
+         * Note: What if toward was stronger the further away?
+         */
+        private Point3D towardNearby() {
+            int numNearby = nearbyBoids.size();
+            if (numNearby == 0) {
+                return Point3D.ZERO;
+            }
+            Point3D vec = Point3D.ZERO;
+            for (Boid nearbyBoid : nearbyBoids) {
+                vec = vec.add(vects[index][nearbyBoid.getIndex()]);
+            }
+            vec = adjust(vec.multiply(1.0 / numNearby));
+            return truncate(vec).multiply(PULL_SCALE);
+        }
+
+        /*
+         * My original toward function. This seems to result in a much smoother
+         * behavior.
+         * 
+         * Note: I'm not sure this is correct. Seems to me that the toward vector and
+         * the avoid vector are exact opposites. If their scales are the same, will they
+         * cancel each other out? The only mitigation I see is the prioritize function,
+         * where one factor can override another if it is strong enough.
+         */
+        private Point3D towardNearby0() {
             Point3D vec = Point3D.ZERO;
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
             }
-            return truncate(vec);
-        }
-
-        private Point3D towardCenter() {
-            Point3D vec = position.multiply(-1.0);
-            double size = Math.min(Math.min(FIELD_SIZE_X, FIELD_SIZE_Y), FIELD_SIZE_Z);
-            if (vec.magnitude() > size) {
-                return Point3D.ZERO;
-            }
-            return truncate(adjust(vec));
-        }
-
-        private Point3D towardNearby() {
-            return towardNearby.multiply(PULL_SCALE);
+            return truncate(vec).multiply(PULL_SCALE);
         }
 
         private Point3D avoidNearby() {
-            return towardNearby.multiply(-PUSH_SCALE);
+            Point3D vec = Point3D.ZERO;
+            for (Boid nearbyBoid : nearbyBoids) {
+                vec = vec.add(adjust(vects[nearbyBoid.getIndex()][index]));
+            }
+            return truncate(vec).multiply(PUSH_SCALE);
         }
 
         private Point3D matchVelocity() {
@@ -420,6 +457,7 @@ public class Boids3D extends Application {
                 } else {
                     double scale = (MAX_DELTA - totalMag) / delta.magnitude();
                     vec = vec.add(delta.multiply(scale));
+                    breakCount.increment();
                     break;
                 }
             }
@@ -430,11 +468,8 @@ public class Boids3D extends Application {
             // Update list of nearby boids
             nearbyBoids = getBoidsInRange(index, MAX_VIEW);
 
-            // Calculate vector toward nearby boids
-            towardNearby = calcTowardNearby();
-
             // Steer - Adjust velocity according to forces
-            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby()));
+            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby0()));
 
             // Add delta, but don't exceed maximum speed
             velocity = velocity.add(delta);
@@ -494,7 +529,6 @@ public class Boids3D extends Application {
             } else if (posZ > maxZ) {
                 posZ = minZ + (posZ - maxZ);
             }
-
             setVelocity(dirX * velocity.getX(), dirY * velocity.getY(), dirZ * velocity.getZ());
             return new Point3D(posX, posY, posZ);
         }
@@ -522,6 +556,27 @@ public class Boids3D extends Application {
                 }
                 boid.getTransforms().add(new Rotate(angle, Rotate.Y_AXIS));
             }
+        }
+    }
+
+    private class Metric {
+        String name;
+        int count = 0;
+
+        Metric(String name) {
+            this.name = name;
+        }
+
+        public void reset() {
+            count = 0;
+        }
+
+        public void increment() {
+            count++;
+        }
+
+        public String toString() {
+            return name + ": " + count;
         }
     }
 
