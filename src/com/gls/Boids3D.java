@@ -8,7 +8,8 @@ import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
-import javafx.beans.property.DoublePropertyBase;
+import javafx.beans.property.SimpleBooleanProperty;
+import javafx.beans.property.SimpleDoubleProperty;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Point3D;
@@ -22,11 +23,14 @@ import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
 import javafx.scene.SubScene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonBar.ButtonData;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
-import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
@@ -89,91 +93,36 @@ public class Boids3D extends Application {
         launch(args);
     }
 
-    private final DoubleProperty pullScale = new DoublePropertyBase(INIT_PULL_SCALE) {
-        @Override
-        protected void invalidated() {
-            // do something
-        }
+    SimpleBooleanProperty isCenter = new SimpleBooleanProperty(true);
 
-        @Override
-        public Object getBean() {
-            return Boids3D.this;
-        }
-
-        @Override
-        public String getName() {
-            return "pullScale";
-        }
-    };
+    private final DoubleProperty pullScale = new SimpleDoubleProperty(INIT_PULL_SCALE);
 
     public double getPullScale() {
-        return pullScaleProperty().get();
+        return pullScale.get();
     }
 
     public void setPullScale(double value) {
-        pullScaleProperty().set(value);
+        pullScale.set(value);
     }
 
-    public DoubleProperty pullScaleProperty() {
-        return pullScale;
-    }
-
-    private final DoubleProperty pushScale = new DoublePropertyBase(INIT_PUSH_SCALE) {
-        @Override
-        protected void invalidated() {
-            // do something
-        }
-
-        @Override
-        public Object getBean() {
-            return Boids3D.this;
-        }
-
-        @Override
-        public String getName() {
-            return "pushScale";
-        }
-    };
+    private final DoubleProperty pushScale = new SimpleDoubleProperty(INIT_PUSH_SCALE);
 
     public double getPushScale() {
-        return pushScaleProperty().get();
+        return pushScale.get();
     }
 
     public void setPushScale(double value) {
-        pushScaleProperty().set(value);
+        pushScale.set(value);
     }
 
-    public DoubleProperty pushScaleProperty() {
-        return pushScale;
-    }
-
-    private final DoubleProperty view = new DoublePropertyBase(INIT_VIEW) {
-        @Override
-        protected void invalidated() {
-            // do something
-        }
-
-        @Override
-        public Object getBean() {
-            return Boids3D.this;
-        }
-
-        @Override
-        public String getName() {
-            return "view";
-        }
-    };
+    private final DoubleProperty view = new SimpleDoubleProperty(INIT_VIEW);
 
     public double getView() {
-        return viewProperty().get();
+        return view.get();
     }
 
     public void setView(double value) {
-        viewProperty().set(value);
-    }
-
-    public DoubleProperty viewProperty() {
-        return view;
+        view.set(value);
     }
 
     @Override
@@ -285,41 +234,51 @@ public class Boids3D extends Application {
     }
 
     private Node createUI() {
-        GridPane ui = new GridPane();
-        ui.setVgap(5);
-        ui.setHgap(5);
-        ui.setAlignment(Pos.CENTER);
-        ui.setPadding(new Insets(10, 10, 10, 10));
-        ui.setStyle("-fx-background-color: rgba(0, 0, 0, 0.1)");
+        GridPane grid = new GridPane();
+//        TitledPane main = new TitledPane("BOID World", grid);
+//        Accordion ui = new Accordion(main);
+
+        grid.setVgap(5);
+        grid.setHgap(5);
+        grid.setAlignment(Pos.CENTER);
+        grid.setPadding(new Insets(10, 10, 10, 10));
+        grid.setStyle("-fx-background-color: rgba(0, 0, 0, 0.1)");
+        grid.setFocusTraversable(false);
 
         TextField title = new TextField("BOID World");
         title.setFont(Font.font("Tahoma", FontWeight.NORMAL, 20));
         title.setAlignment(Pos.CENTER);
 
-        HBox bbar = new HBox();
+        ButtonBar bbar = new ButtonBar();
         Button button0 = new Button("Exit");
         button0.addEventHandler(ActionEvent.ACTION, event -> {
             Platform.exit();
         });
+        ButtonBar.setButtonData(button0, ButtonData.LEFT);
 
         Button button1 = new Button("Scramble");
         button1.addEventHandler(ActionEvent.ACTION, event -> {
             scramble();
-            focusDirty = true;
+//            focusDirty = true;
         });
+        ButtonBar.setButtonData(button1, ButtonData.RIGHT);
 
-        bbar.getChildren().addAll(button0, button1);
-//        bbar.getButtons().addAll(button0, button1);
+        bbar.getButtons().addAll(button0, button1);
 
-        Text name1 = new Text("Size");
+        CheckBox check0 = new CheckBox("Center pull field");
+        check0.setSelected(isCenter.get());
+        isCenter.bind(check0.selectedProperty());
+
+        Label name1 = new Label("Size");
         Slider slide1 = new Slider(MIN_BOID_SIZE, MAX_BOID_SIZE, INIT_BOID_SIZE);
+        slide1.setMinWidth(200);
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].getFigure().scaleXProperty().bind(slide1.valueProperty());
             boids[i].getFigure().scaleYProperty().bind(slide1.valueProperty());
             boids[i].getFigure().scaleZProperty().bind(slide1.valueProperty());
         }
 
-        Text name2 = new Text("Pull");
+        Label name2 = new Label("Pull");
         Slider slide2 = new Slider(MIN_PULL_SCALE, MAX_PULL_SCALE, INIT_PULL_SCALE);
         slide2.setMajorTickUnit(0.25);
         slide2.setMinorTickCount(4);
@@ -328,9 +287,9 @@ public class Boids3D extends Application {
         slide2.setSnapToTicks(true);
         pullScale.bind(slide2.valueProperty());
         Text value2 = new Text();
-        value2.textProperty().bind(pullScale.asString("%1.2f"));
+        value2.textProperty().bind(slide2.valueProperty().asString("%1.2f"));
 
-        Text name3 = new Text("Push");
+        Label name3 = new Label("Push");
         Slider slide3 = new Slider(MIN_PUSH_SCALE, MAX_PUSH_SCALE, INIT_PUSH_SCALE);
         slide3.setMajorTickUnit(0.25);
         slide3.setMinorTickCount(4);
@@ -339,9 +298,9 @@ public class Boids3D extends Application {
         slide3.setSnapToTicks(true);
         pushScale.bind(slide3.valueProperty());
         Text value3 = new Text();
-        value3.textProperty().bind(pushScale.asString("%1.2f"));
+        value3.textProperty().bind(slide3.valueProperty().asString("%1.2f"));
 
-        Text name4 = new Text("View");
+        Label name4 = new Label("View");
         Slider slide4 = new Slider(MIN_VIEW, MAX_VIEW, INIT_VIEW);
         slide4.setMajorTickUnit(100);
         slide4.setMinorTickCount(0);
@@ -350,23 +309,30 @@ public class Boids3D extends Application {
         slide4.setSnapToTicks(false);
         view.bind(slide4.valueProperty());
         Text value4 = new Text();
-        value4.textProperty().bind(view.asString("%5.0f"));
+        value4.textProperty().bind(slide4.valueProperty().asString("%5.0f"));
 
-        ui.add(title, 0, 0, 3, 1);
-        ui.add(bbar, 0, 1, 3, 1);
-        ui.add(name1, 0, 2);
-        ui.add(slide1, 1, 2);
-        ui.add(name2, 0, 3);
-        ui.add(slide2, 1, 3);
-        ui.add(value2, 2, 3);
-        ui.add(name3, 0, 4);
-        ui.add(slide3, 1, 4);
-        ui.add(value3, 2, 4);
-        ui.add(name4, 0, 5);
-        ui.add(slide4, 1, 5);
-        ui.add(value4, 2, 5);
+        int row = 0;
+        grid.add(title, 0, row++, 3, 1);
+        grid.add(bbar, 0, row++, 3, 1);
+        row++;
+        grid.add(name1, 0, row);
+        grid.add(slide1, 1, row);
+        row++;
+        grid.add(name4, 0, row);
+        grid.add(slide4, 1, row);
+        grid.add(value4, 2, row);
+        row++;
+        grid.add(name2, 0, row);
+        grid.add(slide2, 1, row);
+        grid.add(value2, 2, row);
+        row++;
+        grid.add(name3, 0, row);
+        grid.add(slide3, 1, row);
+        grid.add(value3, 2, row);
+        row++;
+        grid.add(check0, 1, row++, 2, 1);
 
-        return ui;
+        return grid;
     }
 
     // Create a color test pattern
@@ -588,6 +554,9 @@ public class Boids3D extends Application {
         }
 
         private Point3D towardCenter() {
+            if (!isCenter.get()) {
+                return Point3D.ZERO;
+            }
             Point3D vec = position.multiply(-1.0);
             return truncate(adjust(vec)).multiply(CENTER_SCALE);
         }
