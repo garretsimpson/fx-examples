@@ -7,7 +7,12 @@ import java.util.List;
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.DoublePropertyBase;
+import javafx.event.ActionEvent;
+import javafx.geometry.Insets;
 import javafx.geometry.Point3D;
+import javafx.geometry.Pos;
 import javafx.scene.AmbientLight;
 import javafx.scene.Group;
 import javafx.scene.Node;
@@ -15,11 +20,20 @@ import javafx.scene.PerspectiveCamera;
 import javafx.scene.PointLight;
 import javafx.scene.Scene;
 import javafx.scene.SceneAntialiasing;
+import javafx.scene.SubScene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Slider;
+import javafx.scene.control.TextField;
 import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Sphere;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
 import javafx.stage.Stage;
@@ -41,13 +55,21 @@ public class Boids3D extends Application {
     private static final double FIELD_SIZE_Z = 2400.0;
 
     private static final int NUM_BOIDS = 400;
-    private static final double BOID_SIZE = 1.2;
+    private static final double MIN_BOID_SIZE = 0.1;
+    private static final double MAX_BOID_SIZE = 5.0;
+    private static final double INIT_BOID_SIZE = 1.2;
     private static final double MIN_SPEED = 0.0;
     private static final double MAX_SPEED = 3.0;
     private static final double MAX_DELTA = 1.0;
-    private static final double MAX_VIEW = 100.0;
-    private static final double PUSH_SCALE = 1.0;
-    private static final double PULL_SCALE = 0.8;
+    private static final double MIN_VIEW = 0.0;
+    private static final double MAX_VIEW = 500.0;
+    private static final double INIT_VIEW = 100.0;
+    private static final double MIN_PUSH_SCALE = 0.0;
+    private static final double MAX_PUSH_SCALE = 1.0;
+    private static final double INIT_PUSH_SCALE = 1.0;
+    private static final double MIN_PULL_SCALE = 0.0;
+    private static final double MAX_PULL_SCALE = 1.0;
+    private static final double INIT_PULL_SCALE = 0.8;
     private static final double MATCH_SCALE = 0.1;
     private static final double CENTER_SCALE = 1.0;
 
@@ -56,8 +78,8 @@ public class Boids3D extends Application {
 
     boolean pause = false;
     boolean up = true;
+    boolean focusDirty = true;
 
-    Group world = new Group();
     Boid[] boids = new Boid[NUM_BOIDS];
     Point3D[][] vects = new Point3D[NUM_BOIDS][NUM_BOIDS];
 
@@ -67,10 +89,102 @@ public class Boids3D extends Application {
         launch(args);
     }
 
+    private final DoubleProperty pullScale = new DoublePropertyBase(INIT_PULL_SCALE) {
+        @Override
+        protected void invalidated() {
+            // do something
+        }
+
+        @Override
+        public Object getBean() {
+            return Boids3D.this;
+        }
+
+        @Override
+        public String getName() {
+            return "pullScale";
+        }
+    };
+
+    public double getPullScale() {
+        return pullScaleProperty().get();
+    }
+
+    public void setPullScale(double value) {
+        pullScaleProperty().set(value);
+    }
+
+    public DoubleProperty pullScaleProperty() {
+        return pullScale;
+    }
+
+    private final DoubleProperty pushScale = new DoublePropertyBase(INIT_PUSH_SCALE) {
+        @Override
+        protected void invalidated() {
+            // do something
+        }
+
+        @Override
+        public Object getBean() {
+            return Boids3D.this;
+        }
+
+        @Override
+        public String getName() {
+            return "pushScale";
+        }
+    };
+
+    public double getPushScale() {
+        return pushScaleProperty().get();
+    }
+
+    public void setPushScale(double value) {
+        pushScaleProperty().set(value);
+    }
+
+    public DoubleProperty pushScaleProperty() {
+        return pushScale;
+    }
+
+    private final DoubleProperty view = new DoublePropertyBase(INIT_VIEW) {
+        @Override
+        protected void invalidated() {
+            // do something
+        }
+
+        @Override
+        public Object getBean() {
+            return Boids3D.this;
+        }
+
+        @Override
+        public String getName() {
+            return "view";
+        }
+    };
+
+    public double getView() {
+        return viewProperty().get();
+    }
+
+    public void setView(double value) {
+        viewProperty().set(value);
+    }
+
+    public DoubleProperty viewProperty() {
+        return view;
+    }
+
     @Override
-    public void start(Stage primaryStage) throws Exception {
+    public void start(Stage stage) throws Exception {
         // primaryStage.setResizable(false);
-        Scene scene = new Scene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
+        Group root = new Group();
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        scene.setFill(FILL_COLOR);
+
+        Group world = new Group();
+        SubScene graphics = new SubScene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
         scene.setFill(FILL_COLOR);
 
         // Create camera
@@ -78,7 +192,7 @@ public class Boids3D extends Application {
         camera.setTranslateZ(-1.5 * FIELD_SIZE_Z);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
         camera.setFarClip(5.0 * FIELD_SIZE_Z);
-        scene.setCamera(camera);
+        graphics.setCamera(camera);
 
         // Create lights
         AmbientLight light1 = new AmbientLight(Color.GRAY);
@@ -92,7 +206,7 @@ public class Boids3D extends Application {
         Group content = new Group();
 
         // Create border
-        Group border = createBorder();
+        Node border = createBorder();
         border.setVisible(true);
         content.getChildren().add(border);
 
@@ -105,13 +219,21 @@ public class Boids3D extends Application {
 
         world.getChildren().add(content);
 
+        // Create UI
+        Node ui = createUI();
+
+        root.getChildren().addAll(graphics, ui);
+
         // Display scene
-        primaryStage.setScene(scene);
-        primaryStage.show();
+        stage.setScene(scene);
+        stage.show();
 
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                if (focusDirty) {
+                    world.requestFocus();
+                }
                 if (pause) {
                     content.getTransforms().add(new Rotate(-0.3, Rotate.Y_AXIS));
                 } else {
@@ -121,7 +243,7 @@ public class Boids3D extends Application {
         };
         timer.start();
 
-        primaryStage.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
+        stage.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             switch (event.getCode()) {
             case UP:
                 content.getTransforms().add(new Rotate(10, content.parentToLocal(Rotate.X_AXIS)));
@@ -162,6 +284,91 @@ public class Boids3D extends Application {
         });
     }
 
+    private Node createUI() {
+        GridPane ui = new GridPane();
+        ui.setVgap(5);
+        ui.setHgap(5);
+        ui.setAlignment(Pos.CENTER);
+        ui.setPadding(new Insets(10, 10, 10, 10));
+        ui.setStyle("-fx-background-color: rgba(0, 0, 0, 0.1)");
+
+        TextField title = new TextField("BOID World");
+        title.setFont(Font.font("Tahoma", FontWeight.NORMAL, 20));
+        title.setAlignment(Pos.CENTER);
+
+        HBox bbar = new HBox();
+        Button button0 = new Button("Exit");
+        button0.addEventHandler(ActionEvent.ACTION, event -> {
+            Platform.exit();
+        });
+
+        Button button1 = new Button("Scramble");
+        button1.addEventHandler(ActionEvent.ACTION, event -> {
+            scramble();
+            focusDirty = true;
+        });
+
+        bbar.getChildren().addAll(button0, button1);
+//        bbar.getButtons().addAll(button0, button1);
+
+        Text name1 = new Text("Size");
+        Slider slide1 = new Slider(MIN_BOID_SIZE, MAX_BOID_SIZE, INIT_BOID_SIZE);
+        for (int i = 0; i < NUM_BOIDS; i++) {
+            boids[i].getFigure().scaleXProperty().bind(slide1.valueProperty());
+            boids[i].getFigure().scaleYProperty().bind(slide1.valueProperty());
+            boids[i].getFigure().scaleZProperty().bind(slide1.valueProperty());
+        }
+
+        Text name2 = new Text("Pull");
+        Slider slide2 = new Slider(MIN_PULL_SCALE, MAX_PULL_SCALE, INIT_PULL_SCALE);
+        slide2.setMajorTickUnit(0.25);
+        slide2.setMinorTickCount(4);
+        slide2.setShowTickMarks(true);
+        slide2.setShowTickLabels(true);
+        slide2.setSnapToTicks(true);
+        pullScale.bind(slide2.valueProperty());
+        Text value2 = new Text();
+        value2.textProperty().bind(pullScale.asString("%1.2f"));
+
+        Text name3 = new Text("Push");
+        Slider slide3 = new Slider(MIN_PUSH_SCALE, MAX_PUSH_SCALE, INIT_PUSH_SCALE);
+        slide3.setMajorTickUnit(0.25);
+        slide3.setMinorTickCount(4);
+        slide3.setShowTickMarks(true);
+        slide3.setShowTickLabels(true);
+        slide3.setSnapToTicks(true);
+        pushScale.bind(slide3.valueProperty());
+        Text value3 = new Text();
+        value3.textProperty().bind(pushScale.asString("%1.2f"));
+
+        Text name4 = new Text("View");
+        Slider slide4 = new Slider(MIN_VIEW, MAX_VIEW, INIT_VIEW);
+        slide4.setMajorTickUnit(100);
+        slide4.setMinorTickCount(0);
+        slide4.setShowTickMarks(true);
+        slide4.setShowTickLabels(true);
+        slide4.setSnapToTicks(false);
+        view.bind(slide4.valueProperty());
+        Text value4 = new Text();
+        value4.textProperty().bind(view.asString("%5.0f"));
+
+        ui.add(title, 0, 0, 3, 1);
+        ui.add(bbar, 0, 1, 3, 1);
+        ui.add(name1, 0, 2);
+        ui.add(slide1, 1, 2);
+        ui.add(name2, 0, 3);
+        ui.add(slide2, 1, 3);
+        ui.add(value2, 2, 3);
+        ui.add(name3, 0, 4);
+        ui.add(slide3, 1, 4);
+        ui.add(value3, 2, 4);
+        ui.add(name4, 0, 5);
+        ui.add(slide4, 1, 5);
+        ui.add(value4, 2, 5);
+
+        return ui;
+    }
+
     // Create a color test pattern
     // Hue - range is 0.0 to 360.0
     // - 0.0 RED
@@ -195,7 +402,7 @@ public class Boids3D extends Application {
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
         }
-        System.out.println(breakCount);
+//        System.out.println(breakCount);
     }
 
     private void scramble() {
@@ -215,7 +422,7 @@ public class Boids3D extends Application {
                 Point3D vec = boids[j].getPosition().subtract(boids[i].getPosition());
                 vects[i][j] = vec;
                 vects[j][i] = vec.multiply(-1.0);
-                if (vec.magnitude() < BOID_SIZE / 2.0) {
+                if (vec.magnitude() < (boids[i].getSize() + boids[j].getSize() / 2.0)) {
                     System.out.println("BOOM!");
                 }
             }
@@ -237,7 +444,7 @@ public class Boids3D extends Application {
         return res;
     }
 
-    public Group createBorder() throws Exception {
+    public Node createBorder() throws Exception {
         Group item = new Group();
 
         final PhongMaterial matBlack = new PhongMaterial(Color.BLACK);
@@ -298,17 +505,17 @@ public class Boids3D extends Application {
     }
 
     private class Boid {
-        private Group boid;
+        private Group figure, boid;
         private int index;
         private Color color = BOID_COLOR;
+        private double size = INIT_BOID_SIZE;
         final PhongMaterial boidMat = new PhongMaterial();
-        final PhongMaterial tailMat = new PhongMaterial();
+//        final PhongMaterial tailMat = new PhongMaterial();
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
         private List<Boid> nearbyBoids;
 
         public Boid(int index) {
-            boid = new Group();
             this.index = index;
 
             boidMat.setDiffuseColor(color);
@@ -327,19 +534,28 @@ public class Boids3D extends Application {
             tail.setTranslateZ(5);
             tail.setMaterial(boidMat);
 
-            Group figure = new Group(Arrays.asList(body, wings, tail));
-            figure.setScaleX(BOID_SIZE);
-            figure.setScaleY(BOID_SIZE);
-            figure.setScaleZ(BOID_SIZE);
-            boid.getChildren().addAll(figure);
+            figure = new Group(Arrays.asList(body, wings, tail));
+            figure.setScaleX(size);
+            figure.setScaleY(size);
+            figure.setScaleZ(size);
+
+            boid = new Group(figure);
         }
 
         public Node getNode() {
             return boid;
         }
 
+        public Node getFigure() {
+            return figure;
+        }
+
         public int getIndex() {
             return index;
+        }
+
+        public double getSize() {
+            return size;
         }
 
         public void setColor(Color color) {
@@ -395,7 +611,7 @@ public class Boids3D extends Application {
                 vec = vec.add(vects[index][nearbyBoid.getIndex()]);
             }
             vec = adjust(vec.multiply(1.0 / numNearby));
-            return truncate(vec).multiply(PULL_SCALE);
+            return truncate(vec).multiply(getPullScale());
         }
 
         /*
@@ -412,7 +628,7 @@ public class Boids3D extends Application {
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
             }
-            return truncate(vec).multiply(PULL_SCALE);
+            return truncate(vec).multiply(getPullScale());
         }
 
         private Point3D avoidNearby() {
@@ -420,7 +636,7 @@ public class Boids3D extends Application {
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(adjust(vects[nearbyBoid.getIndex()][index]));
             }
-            return truncate(vec).multiply(PUSH_SCALE);
+            return truncate(vec).multiply(getPushScale());
         }
 
         private Point3D matchVelocity() {
@@ -466,7 +682,7 @@ public class Boids3D extends Application {
 
         public void update() {
             // Update list of nearby boids
-            nearbyBoids = getBoidsInRange(index, MAX_VIEW);
+            nearbyBoids = getBoidsInRange(index, getView());
 
             // Steer - Adjust velocity according to forces
             Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby0()));
