@@ -10,6 +10,7 @@ import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Point3D;
@@ -66,21 +67,22 @@ public class Boids3D extends Application {
     private static final double MAX_SPEED = 3.0;
     private static final double MAX_DELTA = 1.0;
     private static final double MIN_VIEW = 0.0;
-    private static final double MAX_VIEW = 500.0;
-    private static final double INIT_VIEW = 100.0;
+    private static final double MAX_VIEW = 400.0;
+    private static final double INIT_VIEW = 200.0;
     private static final double MIN_PUSH_SCALE = 0.0;
     private static final double MAX_PUSH_SCALE = 1.0;
     private static final double INIT_PUSH_SCALE = 1.0;
     private static final double MIN_PULL_SCALE = 0.0;
     private static final double MAX_PULL_SCALE = 1.0;
-    private static final double INIT_PULL_SCALE = 0.8;
+    private static final double INIT_PULL_SCALE = 0.1;
     private static final double MATCH_SCALE = 0.1;
     private static final double CENTER_SCALE = 1.0;
+
+    private static final int INIT_NUM_COLORS = NUM_BOIDS / 4;
 
     private static final Color FILL_COLOR = Color.LIGHTSKYBLUE;
     private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
 
-    boolean pause = false;
     boolean up = true;
     boolean focusDirty = true;
 
@@ -93,7 +95,11 @@ public class Boids3D extends Application {
         launch(args);
     }
 
+    SimpleBooleanProperty pause = new SimpleBooleanProperty(false);
+
     SimpleBooleanProperty isCenter = new SimpleBooleanProperty(true);
+
+    SimpleIntegerProperty numColors = new SimpleIntegerProperty(INIT_NUM_COLORS);
 
     private final DoubleProperty pullScale = new SimpleDoubleProperty(INIT_PULL_SCALE);
 
@@ -116,14 +122,6 @@ public class Boids3D extends Application {
     }
 
     private final DoubleProperty view = new SimpleDoubleProperty(INIT_VIEW);
-
-    public double getView() {
-        return view.get();
-    }
-
-    public void setView(double value) {
-        view.set(value);
-    }
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -183,7 +181,7 @@ public class Boids3D extends Application {
                 if (focusDirty) {
                     world.requestFocus();
                 }
-                if (pause) {
+                if (pause.get()) {
                     content.getTransforms().add(new Rotate(-0.3, Rotate.Y_AXIS));
                 } else {
                     onUpdate();
@@ -222,7 +220,7 @@ public class Boids3D extends Application {
                 up = !up;
                 break;
             case SPACE:
-                pause = !pause;
+                pause.set(!pause.get());
                 break;
             case ESCAPE:
                 Platform.exit();
@@ -259,7 +257,6 @@ public class Boids3D extends Application {
         Button button1 = new Button("Scramble");
         button1.addEventHandler(ActionEvent.ACTION, event -> {
             scramble();
-//            focusDirty = true;
         });
         ButtonBar.setButtonData(button1, ButtonData.RIGHT);
 
@@ -303,7 +300,7 @@ public class Boids3D extends Application {
         Label name4 = new Label("View");
         Slider slide4 = new Slider(MIN_VIEW, MAX_VIEW, INIT_VIEW);
         slide4.setMajorTickUnit(100);
-        slide4.setMinorTickCount(0);
+        slide4.setMinorTickCount(4);
         slide4.setShowTickMarks(true);
         slide4.setShowTickLabels(true);
         slide4.setSnapToTicks(false);
@@ -368,7 +365,10 @@ public class Boids3D extends Application {
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
         }
-//        System.out.println(breakCount);
+        updateUI();
+    }
+
+    private void updateUI() {
     }
 
     private void scramble() {
@@ -386,6 +386,26 @@ public class Boids3D extends Application {
                     continue;
                 }
                 Point3D vec = boids[j].getPosition().subtract(boids[i].getPosition());
+                if (vec.getX() > FIELD_SIZE_X / 2.0) {
+                    vec = vec.subtract(FIELD_SIZE_X, 0.0, 0.0);
+                }
+                // Wrap X and Z
+                double posX = vec.getX();
+                double maxX = FIELD_SIZE_X;
+                if (posX > maxX / 2.0) {
+                    vec = vec.subtract(maxX, 0.0, 0.0);
+                } else if (posX < -maxX / 2.0) {
+                    vec = vec.add(maxX, 0.0, 0.0);
+                }
+                double posZ = vec.getZ();
+                double maxZ = FIELD_SIZE_Z;
+                if (posZ > maxZ / 2.0) {
+                    vec = vec.subtract(0.0, 0.0, maxZ);
+                } else if (posZ < -maxZ / 2.0) {
+                    vec = vec.add(0.0, 0.0, maxZ);
+                }
+
+                // Set vectors for both boids
                 vects[i][j] = vec;
                 vects[j][i] = vec.multiply(-1.0);
                 if (vec.magnitude() < (boids[i].getSize() + boids[j].getSize() / 2.0)) {
@@ -524,13 +544,8 @@ public class Boids3D extends Application {
             return size;
         }
 
-        public void setColor(Color color) {
-            this.color = color;
-        }
-
         public Point3D getPosition() {
             return position;
-
         }
 
         public void setPosition(double x, double y, double z) {
@@ -562,15 +577,17 @@ public class Boids3D extends Application {
         }
 
         /*
-         * The toward function according to the spec. This seems to have interesting
-         * "follow the leader" behaviors, but also has some jerkiness.
+         * The toward function according to the spec. The attraction vector is toward
+         * the center of the nearby boids, with a force equal to the inverse square of
+         * the distance.
+         * 
+         * This seems to have interesting "follow the leader" behaviors, but also has
+         * some jerkiness.
          * 
          * Note: The subtle difference between toward and avoid is that toward is an
          * adjusted sum (average) of vectors, while avoid is a sum of adjusted vectors.
-         * 
-         * Note: What if toward was stronger the further away?
          */
-        private Point3D towardNearby() {
+        private Point3D towardNearby0() {
             int numNearby = nearbyBoids.size();
             if (numNearby == 0) {
                 return Point3D.ZERO;
@@ -584,19 +601,35 @@ public class Boids3D extends Application {
         }
 
         /*
-         * My original toward function. This seems to result in a much smoother
-         * behavior.
+         * My original toward function. It computes the sum of the attraction vectors
+         * (inverse square) to each nearby boid.
+         * 
+         * This seems to result in a much smoother behavior.
          * 
          * Note: I'm not sure this is correct. Seems to me that the toward vector and
          * the avoid vector are exact opposites. If their scales are the same, will they
          * cancel each other out? The only mitigation I see is the prioritize function,
          * where one factor can override another if it is strong enough.
          */
-        private Point3D towardNearby0() {
+        private Point3D towardNearby1() {
             Point3D vec = Point3D.ZERO;
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(adjust(vects[index][nearbyBoid.getIndex()]));
             }
+            return truncate(vec).multiply(getPullScale());
+        }
+
+        /*
+         * My modified toward function. Similar to the spec version (uses the average
+         * position), but the attraction force is proportional to the distance, rather
+         * than the inverse square.
+         */
+        private Point3D towardNearby2() {
+            Point3D vec = Point3D.ZERO;
+            for (Boid nearbyBoid : nearbyBoids) {
+                vec = vec.add(vects[index][nearbyBoid.getIndex()]);
+            }
+            vec = vec.normalize();
             return truncate(vec).multiply(getPullScale());
         }
 
@@ -609,11 +642,16 @@ public class Boids3D extends Application {
         }
 
         private Point3D matchVelocity() {
+            int numNearby = nearbyBoids.size();
+            if (numNearby == 0) {
+                return Point3D.ZERO;
+            }
             Point3D vec = Point3D.ZERO;
             for (Boid nearbyBoid : nearbyBoids) {
                 // TODO: Should this be weighted by the neighbor's proximity?
                 vec = vec.add(nearbyBoid.getVelocity());
             }
+            vec = vec.multiply(1.0 / numNearby);
             return truncate(vec).multiply(MATCH_SCALE);
         }
 
@@ -651,10 +689,10 @@ public class Boids3D extends Application {
 
         public void update() {
             // Update list of nearby boids
-            nearbyBoids = getBoidsInRange(index, getView());
+            nearbyBoids = getBoidsInRange(index, view.get());
 
             // Steer - Adjust velocity according to forces
-            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby0()));
+            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby2()));
 
             // Add delta, but don't exceed maximum speed
             velocity = velocity.add(delta);
@@ -671,15 +709,13 @@ public class Boids3D extends Application {
             draw();
         }
 
-        void updateColor() {
-            if (nearbyBoids.size() == 0) {
+        private void updateColor() {
+            if ((numColors.get() == 0) || (nearbyBoids.size() == 0)) {
                 color = BOID_COLOR;
                 return;
             }
-            // Use the range RED to BLUE (0.0 to 240.0)
-            // Assume max of 8 nearby boids
-            double hue = 240.0 * nearbyBoids.size() / 8.0;
-            color = Color.hsb(hue, 0.5, 1.0);
+            double hue = (360.0 / numColors.get()) * nearbyBoids.size();
+            color = Color.hsb(hue, 0.6, 1.0);
         }
 
         private Point3D wrapPosition(Point3D pos) {
