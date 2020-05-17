@@ -68,7 +68,7 @@ public class Boids3D extends Application {
     private static final double MAX_DELTA = 1.0;
     private static final double MIN_VIEW = 0.0;
     private static final double MAX_VIEW = 400.0;
-    private static final double INIT_VIEW = 200.0;
+    private static final double INIT_VIEW = 150.0;
     private static final double MIN_PUSH_SCALE = 0.0;
     private static final double MAX_PUSH_SCALE = 1.0;
     private static final double INIT_PUSH_SCALE = 1.0;
@@ -361,9 +361,17 @@ public class Boids3D extends Application {
 
     private void onUpdate() {
         breakCount.reset();
+
         computeVects();
+
+        int maxNearby = 0;
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].update();
+            maxNearby = Math.max(maxNearby, boids[i].getNumNearby());
+        }
+        numColors.set(maxNearby);
+        for (int i = 0; i < NUM_BOIDS; i++) {
+            boids[i].updateColor();
         }
         updateUI();
     }
@@ -499,7 +507,7 @@ public class Boids3D extends Application {
 //        final PhongMaterial tailMat = new PhongMaterial();
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
-        private List<Boid> nearbyBoids;
+        private List<Boid> nearbyBoids = null;
 
         public Boid(int index) {
             this.index = index;
@@ -566,6 +574,13 @@ public class Boids3D extends Application {
 
         public void setVelocity(Point3D velocity) {
             this.velocity = velocity;
+        }
+
+        public int getNumNearby() {
+            if (nearbyBoids == null) {
+                return 0;
+            }
+            return nearbyBoids.size();
         }
 
         private Point3D towardCenter() {
@@ -705,7 +720,6 @@ public class Boids3D extends Application {
             position = wrapPosition(newPos);
 
             // Render the boid
-            updateColor();
             draw();
         }
 
@@ -716,6 +730,7 @@ public class Boids3D extends Application {
             }
             double hue = (360.0 / numColors.get()) * nearbyBoids.size();
             color = Color.hsb(hue, 0.6, 1.0);
+            boidMat.setDiffuseColor(color);
         }
 
         private Point3D wrapPosition(Point3D pos) {
@@ -755,7 +770,6 @@ public class Boids3D extends Application {
         }
 
         public void draw() {
-            boidMat.setDiffuseColor(color);
             boid.getTransforms().clear();
 
             // Move it to the correct position
