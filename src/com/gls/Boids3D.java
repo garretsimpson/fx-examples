@@ -83,17 +83,15 @@ public class Boids3D extends Application {
     private static final Color FILL_COLOR = Color.LIGHTSKYBLUE;
     private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
 
-    boolean up = true;
-    boolean focusDirty = true;
+    private boolean up = true;
+    private boolean pov = false;
+    private boolean focusDirty = true;
+    private int povBoid = 0;
 
     Boid[] boids = new Boid[NUM_BOIDS];
     Point3D[][] vects = new Point3D[NUM_BOIDS][NUM_BOIDS];
 
     Metric breakCount = new Metric("Break");
-
-    public static void main(String[] args) {
-        launch(args);
-    }
 
     SimpleBooleanProperty pause = new SimpleBooleanProperty(false);
 
@@ -123,6 +121,10 @@ public class Boids3D extends Application {
 
     private final DoubleProperty view = new SimpleDoubleProperty(INIT_VIEW);
 
+    public static void main(String[] args) {
+        launch(args);
+    }
+
     @Override
     public void start(Stage stage) throws Exception {
         // primaryStage.setResizable(false);
@@ -131,7 +133,7 @@ public class Boids3D extends Application {
         scene.setFill(FILL_COLOR);
 
         Group world = new Group();
-        SubScene graphics = new SubScene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
+        SubScene mainScene = new SubScene(world, WIDTH, HEIGHT, true, SceneAntialiasing.BALANCED);
         scene.setFill(FILL_COLOR);
 
         // Create camera
@@ -139,7 +141,7 @@ public class Boids3D extends Application {
         camera.setTranslateZ(-1.5 * FIELD_SIZE_Z);
         camera.setNearClip(0.1); // Setting this to zero disables the Z buffer.
         camera.setFarClip(5.0 * FIELD_SIZE_Z);
-        graphics.setCamera(camera);
+        mainScene.setCamera(camera);
 
         // Create lights
         AmbientLight light1 = new AmbientLight(Color.GRAY);
@@ -169,7 +171,7 @@ public class Boids3D extends Application {
         // Create UI
         Node ui = createUI();
 
-        root.getChildren().addAll(graphics, ui);
+        root.getChildren().addAll(mainScene, ui);
 
         // Display scene
         stage.setScene(scene);
@@ -218,6 +220,23 @@ public class Boids3D extends Application {
                 break;
             case DIGIT2:
                 up = !up;
+                break;
+            case DIGIT3:
+                pov = !pov;
+                if (pov) {
+                    boids[povBoid].addNode(camera);
+                    camera.setTranslateX(0.0);
+                    camera.setTranslateY(-250.0);
+                    camera.setTranslateZ(50.0);
+                    camera.getTransforms().add(new Rotate(-90.0, Rotate.X_AXIS));
+                } else {
+                    boids[povBoid].removeNode(camera);
+                    camera.getTransforms().clear();
+                    camera.setTranslateX(0.0);
+                    camera.setTranslateY(0.0);
+                    camera.setTranslateZ(-1.5 * FIELD_SIZE_Z);
+                    povBoid = (int) (NUM_BOIDS * Math.random());
+                }
                 break;
             case SPACE:
                 pause.set(!pause.get());
@@ -507,6 +526,7 @@ public class Boids3D extends Application {
 //        final PhongMaterial tailMat = new PhongMaterial();
         private Point3D position = Point3D.ZERO;
         private Point3D velocity = Point3D.ZERO;
+        private Point3D delta = Point3D.ZERO; // Acceleration
         private List<Boid> nearbyBoids = null;
 
         public Boid(int index) {
@@ -550,6 +570,14 @@ public class Boids3D extends Application {
 
         public double getSize() {
             return size;
+        }
+
+        public void addNode(Node node) {
+            boid.getChildren().add(node);
+        }
+
+        public void removeNode(Node node) {
+            boid.getChildren().removeAll(node);
         }
 
         public Point3D getPosition() {
@@ -644,7 +672,7 @@ public class Boids3D extends Application {
             for (Boid nearbyBoid : nearbyBoids) {
                 vec = vec.add(vects[index][nearbyBoid.getIndex()]);
             }
-            vec = vec.normalize();
+//            vec = vec.normalize();
             return truncate(vec).multiply(getPullScale());
         }
 
@@ -707,13 +735,15 @@ public class Boids3D extends Application {
             nearbyBoids = getBoidsInRange(index, view.get());
 
             // Steer - Adjust velocity according to forces
-            Point3D delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby2()));
+            delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby2()));
 
             // Add delta, but don't exceed maximum speed
+            Point3D oldVelocity = Point3D.ZERO.add(velocity);
             velocity = velocity.add(delta);
             if (velocity.magnitude() > MAX_SPEED) {
                 velocity = velocity.normalize().multiply(MAX_SPEED);
             }
+            delta = velocity.subtract(oldVelocity);
 
             // Update position
             Point3D newPos = position.add(velocity);
@@ -785,6 +815,8 @@ public class Boids3D extends Application {
                 Point3D upward = boid.parentToLocal(position.getX(), position.getY() - 1000.0, position.getZ())
                     .normalize();
                 Point3D vec = new Point3D(upward.getX(), 0.0, upward.getZ());
+                // adjust for bank
+                // vec = vec.add(delta);
                 angle = Rotate.Z_AXIS.angle(vec);
                 if (vec.getX() < 0.0) {
                     angle = -angle;
