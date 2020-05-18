@@ -10,7 +10,6 @@ import javafx.application.Platform;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.geometry.Point3D;
@@ -27,17 +26,13 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonBar.ButtonData;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
-import javafx.scene.control.TextField;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.GridPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.PhongMaterial;
 import javafx.scene.shape.Box;
 import javafx.scene.shape.Sphere;
-import javafx.scene.text.Font;
-import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.transform.Rotate;
 import javafx.scene.transform.Translate;
@@ -78,26 +73,22 @@ public class Boids3D extends Application {
     private static final double MATCH_SCALE = 0.1;
     private static final double CENTER_SCALE = 1.0;
 
-    private static final int INIT_NUM_COLORS = NUM_BOIDS / 4;
-
     private static final Color FILL_COLOR = Color.LIGHTSKYBLUE;
     private static final Color BOID_COLOR = Color.LIGHTSLATEGRAY;
 
     private boolean up = true;
     private boolean pov = false;
+    private boolean pause = false;
     private boolean focusDirty = true;
     private int povBoid = 0;
+    private int numColors = 0;
 
     Boid[] boids = new Boid[NUM_BOIDS];
     Point3D[][] vects = new Point3D[NUM_BOIDS][NUM_BOIDS];
 
     Metric breakCount = new Metric("Break");
 
-    SimpleBooleanProperty pause = new SimpleBooleanProperty(false);
-
     SimpleBooleanProperty isCenter = new SimpleBooleanProperty(true);
-
-    SimpleIntegerProperty numColors = new SimpleIntegerProperty(INIT_NUM_COLORS);
 
     private final DoubleProperty pullScale = new SimpleDoubleProperty(INIT_PULL_SCALE);
 
@@ -175,6 +166,7 @@ public class Boids3D extends Application {
 
         // Display scene
         stage.setScene(scene);
+        stage.setTitle("BOID World");
         stage.show();
 
         AnimationTimer timer = new AnimationTimer() {
@@ -183,7 +175,7 @@ public class Boids3D extends Application {
                 if (focusDirty) {
                     world.requestFocus();
                 }
-                if (pause.get()) {
+                if (pause) {
                     content.getTransforms().add(new Rotate(-0.3, Rotate.Y_AXIS));
                 } else {
                     onUpdate();
@@ -239,7 +231,7 @@ public class Boids3D extends Application {
                 }
                 break;
             case SPACE:
-                pause.set(!pause.get());
+                pause = !pause;
                 break;
             case ESCAPE:
                 Platform.exit();
@@ -262,10 +254,6 @@ public class Boids3D extends Application {
         grid.setStyle("-fx-background-color: rgba(0, 0, 0, 0.1)");
         grid.setFocusTraversable(false);
 
-        TextField title = new TextField("BOID World");
-        title.setFont(Font.font("Tahoma", FontWeight.NORMAL, 20));
-        title.setAlignment(Pos.CENTER);
-
         ButtonBar bbar = new ButtonBar();
         Button button0 = new Button("Exit");
         button0.addEventHandler(ActionEvent.ACTION, event -> {
@@ -285,7 +273,7 @@ public class Boids3D extends Application {
         check0.setSelected(isCenter.get());
         isCenter.bind(check0.selectedProperty());
 
-        Label name1 = new Label("Size");
+        Text name1 = new Text("Size");
         Slider slide1 = new Slider(MIN_BOID_SIZE, MAX_BOID_SIZE, INIT_BOID_SIZE);
         slide1.setMinWidth(200);
         for (int i = 0; i < NUM_BOIDS; i++) {
@@ -293,8 +281,10 @@ public class Boids3D extends Application {
             boids[i].getFigure().scaleYProperty().bind(slide1.valueProperty());
             boids[i].getFigure().scaleZProperty().bind(slide1.valueProperty());
         }
+        Text value1 = new Text();
+        value1.textProperty().bind(slide1.valueProperty().asString("%1.2f"));
 
-        Label name2 = new Label("Pull");
+        Text name2 = new Text("Pull");
         Slider slide2 = new Slider(MIN_PULL_SCALE, MAX_PULL_SCALE, INIT_PULL_SCALE);
         slide2.setMajorTickUnit(0.25);
         slide2.setMinorTickCount(4);
@@ -305,7 +295,7 @@ public class Boids3D extends Application {
         Text value2 = new Text();
         value2.textProperty().bind(slide2.valueProperty().asString("%1.2f"));
 
-        Label name3 = new Label("Push");
+        Text name3 = new Text("Push");
         Slider slide3 = new Slider(MIN_PUSH_SCALE, MAX_PUSH_SCALE, INIT_PUSH_SCALE);
         slide3.setMajorTickUnit(0.25);
         slide3.setMinorTickCount(4);
@@ -316,7 +306,7 @@ public class Boids3D extends Application {
         Text value3 = new Text();
         value3.textProperty().bind(slide3.valueProperty().asString("%1.2f"));
 
-        Label name4 = new Label("View");
+        Text name4 = new Text("View");
         Slider slide4 = new Slider(MIN_VIEW, MAX_VIEW, INIT_VIEW);
         slide4.setMajorTickUnit(100);
         slide4.setMinorTickCount(4);
@@ -325,28 +315,28 @@ public class Boids3D extends Application {
         slide4.setSnapToTicks(false);
         view.bind(slide4.valueProperty());
         Text value4 = new Text();
-        value4.textProperty().bind(slide4.valueProperty().asString("%5.0f"));
+        value4.textProperty().bind(slide4.valueProperty().asString("%1.0f"));
 
         int row = 0;
-        grid.add(title, 0, row++, 3, 1);
-        grid.add(bbar, 0, row++, 3, 1);
+        grid.add(bbar, 0, row, 2, 1);
         row++;
         grid.add(name1, 0, row);
-        grid.add(slide1, 1, row);
+        grid.add(value1, 1, row++);
+        grid.add(slide1, 0, row, 2, 1);
         row++;
         grid.add(name4, 0, row);
-        grid.add(slide4, 1, row);
-        grid.add(value4, 2, row);
+        grid.add(value4, 1, row++);
+        grid.add(slide4, 0, row, 2, 1);
         row++;
         grid.add(name2, 0, row);
-        grid.add(slide2, 1, row);
-        grid.add(value2, 2, row);
+        grid.add(value2, 1, row++);
+        grid.add(slide2, 0, row, 2, 1);
         row++;
         grid.add(name3, 0, row);
-        grid.add(slide3, 1, row);
-        grid.add(value3, 2, row);
+        grid.add(value3, 1, row++);
+        grid.add(slide3, 0, row, 2, 1);
         row++;
-        grid.add(check0, 1, row++, 2, 1);
+        grid.add(check0, 0, row, 2, 1);
 
         return grid;
     }
@@ -388,7 +378,7 @@ public class Boids3D extends Application {
             boids[i].update();
             maxNearby = Math.max(maxNearby, boids[i].getNumNearby());
         }
-        numColors.set(maxNearby);
+        numColors = maxNearby;
         for (int i = 0; i < NUM_BOIDS; i++) {
             boids[i].updateColor();
         }
@@ -401,7 +391,7 @@ public class Boids3D extends Application {
     private void scramble() {
         for (int i = 0; i < NUM_BOIDS; i++) {
             Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-            boids[i].setVelocity(vec.multiply(MIN_SPEED + (MAX_SPEED - MIN_SPEED) / 2.0));
+            boids[i].setVelocity(vec.multiply((MIN_SPEED + MAX_SPEED) / 2.0));
         }
     }
 
@@ -754,11 +744,11 @@ public class Boids3D extends Application {
         }
 
         private void updateColor() {
-            if ((numColors.get() == 0) || (nearbyBoids.size() == 0)) {
+            if ((numColors == 0) || (nearbyBoids.size() == 0)) {
                 color = BOID_COLOR;
                 return;
             }
-            double hue = (360.0 / numColors.get()) * nearbyBoids.size();
+            double hue = (360.0 / numColors) * nearbyBoids.size();
             color = Color.hsb(hue, 0.6, 1.0);
             boidMat.setDiffuseColor(color);
         }
