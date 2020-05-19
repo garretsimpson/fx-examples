@@ -136,7 +136,7 @@ public class Boids3D extends Application {
 
         // Create lights
         AmbientLight light1 = new AmbientLight(Color.GRAY);
-        PointLight light2 = new PointLight(Color.WHITE);
+        PointLight light2 = new PointLight(Color.LIGHTYELLOW);
         light2.setTranslateX(-FIELD_SIZE_X);
         light2.setTranslateY(-FIELD_SIZE_Y);
         light2.setTranslateZ(-FIELD_SIZE_Z);
@@ -157,11 +157,19 @@ public class Boids3D extends Application {
             content.getChildren().add(boid.getNode());
         }
 
+        // Add obstacles
+//        Cylinder c1 = new Cylinder(50, FIELD_SIZE_Y);
+//        PhongMaterial mat = new PhongMaterial(Color.BEIGE);
+//        c1.setMaterial(mat);
+//        content.getChildren().add(c1);
+
+        // Add content to world
         world.getChildren().add(content);
 
         // Create UI
         Node ui = createUI();
 
+        // Add all to root node
         root.getChildren().addAll(mainScene, ui);
 
         // Display scene
@@ -216,18 +224,21 @@ public class Boids3D extends Application {
             case DIGIT3:
                 pov = !pov;
                 if (pov) {
+                    povBoid = (int) (NUM_BOIDS * Math.random());
                     boids[povBoid].addNode(camera);
                     camera.setTranslateX(0.0);
-                    camera.setTranslateY(-250.0);
+                    camera.setTranslateY(-150.0);
                     camera.setTranslateZ(50.0);
                     camera.getTransforms().add(new Rotate(-90.0, Rotate.X_AXIS));
+                    camera.setFieldOfView(90.0);
+
                 } else {
                     boids[povBoid].removeNode(camera);
                     camera.getTransforms().clear();
                     camera.setTranslateX(0.0);
                     camera.setTranslateY(0.0);
                     camera.setTranslateZ(-1.5 * FIELD_SIZE_Z);
-                    povBoid = (int) (NUM_BOIDS * Math.random());
+                    camera.setFieldOfView(30.0);
                 }
                 break;
             case SPACE:
@@ -391,7 +402,7 @@ public class Boids3D extends Application {
     private void scramble() {
         for (int i = 0; i < NUM_BOIDS; i++) {
             Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-            boids[i].setVelocity(vec.multiply((MIN_SPEED + MAX_SPEED) / 2.0));
+            boids[i].setVelocity(vec.multiply(Math.random() * (MAX_SPEED - MIN_SPEED) + MIN_SPEED));
         }
     }
 
@@ -501,7 +512,7 @@ public class Boids3D extends Application {
         boid.setPosition(randomPoint(-FIELD_SIZE_X / 2.0, FIELD_SIZE_X / 2.0, -FIELD_SIZE_Y / 2.0, FIELD_SIZE_Y / 2.0,
             -FIELD_SIZE_Z / 2.0, FIELD_SIZE_Z / 2.0));
         Point3D vec = new Point3D(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize();
-        boid.setVelocity(vec.multiply((MIN_SPEED + MAX_SPEED) / 2.0));
+        boid.setVelocity(vec.multiply(Math.random() * (MAX_SPEED - MIN_SPEED) + MIN_SPEED));
         boid.draw();
 
         return boid;
@@ -533,7 +544,7 @@ public class Boids3D extends Application {
             Box wings = new Box(40, 10, 2);
             wings.setTranslateY(2.5);
             wings.setMaterial(boidMat);
-            Box tail = new Box(2, 10, 10);
+            Box tail = new Box(2, 8, 8);
             tail.setTranslateY(-10);
             tail.setTranslateZ(5);
             tail.setMaterial(boidMat);
@@ -688,6 +699,35 @@ public class Boids3D extends Application {
             return truncate(vec).multiply(MATCH_SCALE);
         }
 
+        private Point3D avoidObsticles() {
+            Point3D vec = Point3D.ZERO;
+            Point3D delta;
+            double dist;
+
+            // top and bottom planes
+            double maxY = FIELD_SIZE_Y / 2.0;
+            dist = maxY - position.getY();
+            if (dist > view.get()) {
+                delta = Point3D.ZERO;
+            } else if (dist > 0.0) {
+                delta = adjust(new Point3D(0.0, -dist, 0.0));
+            } else {
+                delta = new Point3D(0.0, -1.0, 0.0);
+            }
+            vec = vec.add(delta);
+            double minY = -FIELD_SIZE_Y / 2.0;
+            dist = minY - position.getY();
+            if (dist < -view.get()) {
+                delta = Point3D.ZERO;
+            } else if (dist < 0.0) {
+                delta = adjust(new Point3D(0.0, -dist, 0.0));
+            } else {
+                delta = new Point3D(0.0, 1.0, 0.0);
+            }
+            vec = vec.add(delta);
+            return truncate(vec);
+        }
+
         // Objects further away should have less force
         // Adjust the vector by dividing it by the square of its length
         private Point3D adjust(Point3D vec) {
@@ -725,7 +765,7 @@ public class Boids3D extends Application {
             nearbyBoids = getBoidsInRange(index, view.get());
 
             // Steer - Adjust velocity according to forces
-            delta = prioritize(Arrays.asList(avoidNearby(), towardCenter(), matchVelocity(), towardNearby2()));
+            delta = prioritize(Arrays.asList(avoidObsticles(), avoidNearby(), matchVelocity(), towardNearby2()));
 
             // Add delta, but don't exceed maximum speed
             Point3D oldVelocity = Point3D.ZERO.add(velocity);
@@ -773,13 +813,13 @@ public class Boids3D extends Application {
             } else if (posX > maxX) {
                 posX = minX + (posX - maxX);
             }
-            if (posY < minY) {
-                posY = minY + (minY - posY);
-                dirY = -dirY;
-            } else if (posY > maxY) {
-                posY = maxY - (posY - maxY);
-                dirY = -dirY;
-            }
+//            if (posY < minY) {
+//                posY = minY + (minY - posY);
+//                dirY = -dirY;
+//            } else if (posY > maxY) {
+//                posY = maxY - (posY - maxY);
+//                dirY = -dirY;
+//            }
             if (posZ < minZ) {
                 posZ = maxZ - (minZ - posZ);
             } else if (posZ > maxZ) {
